@@ -1,0 +1,51 @@
+services:
+
+  # --- 1. Database (Postgres + pgvector) ---
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: db
+    restart: always
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - "5432:5432"
+    volumes:
+    # 这里有一个问题 如果你的db_data写错了需要删除对应的卷
+    # 解决方案是docker-compose down -v来关闭并删除卷
+      - db_data:/var/lib/postgresql/data
+      - ./SQL:/docker-entrypoint-initdb.d
+
+  # --- 2. Python 服务 ---
+  python:
+    build: ./python
+    container_name: python
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - DB_HOST=db
+      - DB_PASS=mypassword
+    depends_on:
+      - db
+
+  # --- 3. Java Spring Boot 后端 ---
+  java:
+    build: ./java
+    container_name: java
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mydatabase
+      SPRING_DATASOURCE_USERNAME: myuser
+      SPRING_DATASOURCE_PASSWORD: mypassword
+      logging.level.org.hibernate.SQL: DEBUG
+      PYTHON_SERVICE_URL: http://python:5000
+    depends_on:
+      - db
+      - python
+
+volumes:
+  db_data:
