@@ -2,7 +2,7 @@ import os
 import logging
 from typing import List, Dict
 
-from openai import OpenAI
+from openai import OpenAI, APIConnectionError
 
 from SQL.client_db import fetch_section_config, fetch_history
 from SQL.db import get_db_conn
@@ -14,11 +14,6 @@ logger = logging.getLogger(__name__)
 # 获取 API Key，通常从环境变量读取
 API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 BASE_URL = "https://api.deepseek.com"  # DeepSeek 的官方 API 地址
-
-
-def chat_with_deepseek_context(user_query: str, system_prompt: str, history: List[Dict[str, str]] | None = None) -> str:
-    """给定上下文，调用大模型返回回复；错误时抛异常。"""
-    return ask_deepseek(user_query=user_query, system_prompt=system_prompt, history=history or [])
 
 
 def chat_with_deepseek_from_db(section_id: int, user_id: int, content: str) -> str:
@@ -34,7 +29,7 @@ def chat_with_deepseek_from_db(section_id: int, user_id: int, content: str) -> s
             raise ValueError("section_id not found")
 
         history = fetch_history(conn, section_id, user_id, limit=10)
-        return chat_with_deepseek_context(
+        return ask_deepseek(
             user_query=content,
             system_prompt=section_cfg.get("system_prompt") or "You are a helpful assistant.",
             history=history,
@@ -89,12 +84,16 @@ def ask_deepseek(
     messages.append({"role": "user", "content": user_query})
 
     logging.info(f"Sending request to DeepSeek API with model: {model}")
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        stream=False,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            stream=False,
+        )
+    except APIConnectionError as exc:
+        logger.exception("DeepSeek API connection failed")
+        raise RuntimeError("连接大模型服务失败，请稍后重试或检查网络/防火墙/代理设置") from exc
 
     # 提取回复内容
     answer = response.choices[0].message.content

@@ -31,8 +31,11 @@ def chat(request: ChatRequest):
     except ValueError as e:
         # 业务层明确抛出的错误（例如 section 不存在）
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except RuntimeError as e:
+        # 外部服务连接失败等可恢复错误
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error processing chat request")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="internal error") from e

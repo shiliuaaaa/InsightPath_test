@@ -1,2 +1,5 @@
 
-/backend/logs
+# Backend logs
+/backend/logs/
+backend/logs/app.log
+*.log

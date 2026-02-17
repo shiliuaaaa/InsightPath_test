@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS section_ai_configs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
 -- 10. AI对话记录表 (AIChatMessages) - 1:N 记录 (type=AI)
 CREATE TABLE IF NOT EXISTS ai_chat_messages (
     id SERIAL PRIMARY KEY,
@@ -125,6 +126,32 @@ CREATE TABLE IF NOT EXISTS test_connection (
     info TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+
+WITH school AS (
+    INSERT INTO schools (name)
+    VALUES ('示例大学')
+    RETURNING id
+), teacher AS (
+    INSERT INTO users (username, phone, password_hash, nickname, role, school_id)
+    SELECT 'teacher1', '13800000000', 'hash', 'Teacher One', 'TEACHER', id
+    FROM school
+    RETURNING id
+), course AS (
+    INSERT INTO courses (teacher_id, school_id, title, description, status, visibility, permission)
+    SELECT t.id, s.id, '示例课程', '示例课程简介', 'IN_PROGRESS', 'PUBLIC', 'OPEN'
+    FROM teacher t, school s
+    RETURNING id
+), section AS (
+    INSERT INTO course_sections (course_id, title, type, order_index)
+    SELECT c.id, 'AI 助教', 'AI', 0
+    FROM course c
+    RETURNING id
+)
+INSERT INTO section_ai_configs (section_id, welcome_message, system_prompt, model_name)
+SELECT id, '欢迎来到课程AI助教！', '你是一个友好且知识渊博的AI助教，帮助学生解答课程相关问题。', 'deepseek-chat'
+FROM section;
 
 INSERT INTO test_connection (info) VALUES ('Database connected successfully!');
 
