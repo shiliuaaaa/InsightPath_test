@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from src.Agent.deepseek_client import ask_deepseek
+from src.client.deepseek_client import ask_deepseek
 import os
 
 class TestDeepSeekClient(unittest.TestCase):

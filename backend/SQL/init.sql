@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- 1. 学校表 (Schools) - 基础字典
 CREATE TABLE IF NOT EXISTS schools (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     region_code VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -11,22 +11,23 @@ CREATE TABLE IF NOT EXISTS schools (
 
 -- 2. 用户表 (Users) - 核心用户
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
-    phone VARCHAR(20) NOT NULL UNIQUE,
+    phone VARCHAR(20) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     nickname VARCHAR(100) NOT NULL,
     avatar_url VARCHAR(255),
     role VARCHAR(20) NOT NULL CHECK (role IN ('STUDENT', 'TEACHER')),
-    school_id INTEGER REFERENCES schools(id), -- 学生选填，教师认证后更新
+    school_id BIGINT REFERENCES schools(id), -- 学生选填，教师认证后更新
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (phone, role)
 );
 
 -- 3. 教师认证表 (TeacherVerifications) - 可选
 CREATE TABLE IF NOT EXISTS teacher_verifications (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE REFERENCES users(id),
     real_name VARCHAR(100) NOT NULL,
     certification_url VARCHAR(255) NOT NULL,
     status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
@@ -36,9 +37,9 @@ CREATE TABLE IF NOT EXISTS teacher_verifications (
 
 -- 4. 课程主表 (Courses) - 核心业务对象
 CREATE TABLE IF NOT EXISTS courses (
-    id SERIAL PRIMARY KEY,
-    teacher_id INTEGER NOT NULL REFERENCES users(id),
-    school_id INTEGER NOT NULL REFERENCES schools(id),
+    id BIGSERIAL PRIMARY KEY,
+    teacher_id BIGINT NOT NULL REFERENCES users(id),
+    school_id BIGINT NOT NULL REFERENCES schools(id),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     cover_image VARCHAR(255),
@@ -54,9 +55,9 @@ CREATE TABLE IF NOT EXISTS courses (
 
 -- 5. 课程成员表 (CourseMembers) - 记录成功加入的学生
 CREATE TABLE IF NOT EXISTS course_members (
-    id SERIAL PRIMARY KEY,
-    course_id INTEGER NOT NULL REFERENCES courses(id),
-    user_id INTEGER NOT NULL REFERENCES users(id),
+    id BIGSERIAL PRIMARY KEY,
+    course_id BIGINT NOT NULL REFERENCES courses(id),
+    user_id BIGINT NOT NULL REFERENCES users(id),
     -- status: PENDING(申请中), JOINED(已加入)
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'JOINED')),
     role VARCHAR(20) DEFAULT 'STUDENT',
@@ -68,8 +69,8 @@ CREATE TABLE IF NOT EXISTS course_members (
 
 -- 6. 课程栏目表 (CourseSections) - 课程内容的骨架
 CREATE TABLE IF NOT EXISTS course_sections (
-    id SERIAL PRIMARY KEY,
-    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     title VARCHAR(64) NOT NULL,
     -- type: DISPLAY(富文本), STORAGE(网盘), AI(问答助教)
     type VARCHAR(20) NOT NULL CHECK (type IN ('DISPLAY', 'STORAGE', 'AI')),
@@ -80,17 +81,17 @@ CREATE TABLE IF NOT EXISTS course_sections (
 
 -- 7. 栏目富文本内容表 (SectionContents) - 1:1 扩展 (type=DISPLAY)
 CREATE TABLE IF NOT EXISTS section_contents (
-    id SERIAL PRIMARY KEY,
-    section_id INTEGER NOT NULL UNIQUE REFERENCES course_sections(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    section_id BIGINT NOT NULL UNIQUE REFERENCES course_sections(id) ON DELETE CASCADE,
     content TEXT, -- Markdown内容
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 8. 课程文件表 (CourseFiles) - 1:N 扩展 (type=STORAGE)
 CREATE TABLE IF NOT EXISTS course_files (
-    id SERIAL PRIMARY KEY,
-    section_id INTEGER NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
-    parent_id INTEGER REFERENCES course_files(id) ON DELETE CASCADE, -- 支持文件夹层级
+    id BIGSERIAL PRIMARY KEY,
+    section_id BIGINT NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
+    parent_id BIGINT REFERENCES course_files(id) ON DELETE CASCADE, -- 支持文件夹层级
     type VARCHAR(20) NOT NULL CHECK (type IN ('FILE', 'FOLDER')),
     name VARCHAR(255) NOT NULL,
     file_url VARCHAR(255), -- 仅 FILE 类型有效
@@ -101,8 +102,8 @@ CREATE TABLE IF NOT EXISTS course_files (
 
 -- 9. AI配置表 (SectionAIConfigs) - 1:1 扩展 (type=AI)
 CREATE TABLE IF NOT EXISTS section_ai_configs (
-    id SERIAL PRIMARY KEY,
-    section_id INTEGER NOT NULL UNIQUE REFERENCES course_sections(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    section_id BIGINT NOT NULL UNIQUE REFERENCES course_sections(id) ON DELETE CASCADE,
     welcome_message VARCHAR(255) NOT NULL DEFAULT '你好，我是你的AI助教。',
     system_prompt TEXT NOT NULL, -- 隐藏的 Prompt
     model_name VARCHAR(50) DEFAULT 'gpt-4o',
@@ -112,9 +113,9 @@ CREATE TABLE IF NOT EXISTS section_ai_configs (
 
 -- 10. AI对话记录表 (AIChatMessages) - 1:N 记录 (type=AI)
 CREATE TABLE IF NOT EXISTS ai_chat_messages (
-    id SERIAL PRIMARY KEY,
-    section_id INTEGER NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,
+    section_id BIGINT NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(20) NOT NULL CHECK (role IN ('USER', 'ASSISTANT')),
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -122,7 +123,7 @@ CREATE TABLE IF NOT EXISTS ai_chat_messages (
 
 -- Create a sample table just to verify connectivity
 CREATE TABLE IF NOT EXISTS test_connection (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     info TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
