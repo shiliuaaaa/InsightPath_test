@@ -12,8 +12,9 @@ use-java17.sh
 
 # 日志文件
 *.log
+/backend/logs/
+backend/logs/app.log
 
 # 临时文件
 *.tmp
 *.bak
-

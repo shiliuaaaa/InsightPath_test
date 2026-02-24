@@ -36,6 +36,11 @@ case "$1" in
         echo "------ 正在启动所有服务 ------"
         docker compose up --build
         ;;
+    "cleandb" )
+        echo "------ 正在清理数据库数据 ------"
+        # 注意：这会删除数据库中的所有数据，请谨慎使用
+        docker compose down -v
+        ;;
     *)
         show_help
         ;;

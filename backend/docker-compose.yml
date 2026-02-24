@@ -28,6 +28,7 @@ services:
     environment:
       - DB_HOST=db
       - DB_PASS=mypassword
+      - DEEPSEEK_API_KEY=sk-b541487df6aa4b02aecab78d1d955ce5
     depends_on:
       - db
 
