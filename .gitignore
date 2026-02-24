@@ -1,0 +1,19 @@
+# Java 环境切换脚本（本地配置）
+use-java17.sh
+
+# macOS 系统文件
+.DS_Store
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.bak
+
