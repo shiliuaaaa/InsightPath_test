@@ -5,6 +5,7 @@ import 'pages/login_page.dart';
 import 'pages/student_home_page.dart';
 import 'pages/teacher_home_page.dart';
 import 'services/auth_service.dart';
+import 'utils/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,11 +42,9 @@ class MyApp extends StatelessWidget {
     }
 
     return MaterialApp(
-      title: '智能辅导平台',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
+      title: '灵犀知径',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
       home: home,
     );
   }

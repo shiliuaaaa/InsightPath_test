@@ -17,6 +17,11 @@ dependencies:
   uuid: ^4.5.0
   flutter_markdown: ^0.7.3
   pointycastle: ^3.7.3
+  file_picker: ^10.3.10
+  open_file: ^3.3.2
+  path_provider: ^2.1.2
+  dio: ^5.4.0
+  syncfusion_flutter_pdfviewer: ^27.1.48
 
 dev_dependencies:
   flutter_test:

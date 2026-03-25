@@ -4,6 +4,7 @@ class FileItem {
   final String type;
   final String name;
   final String? url;
+  final String? pdfUrl;
   final int? sizeBytes;
   final String? extension;
   final String updatedAt;
@@ -15,6 +16,7 @@ class FileItem {
     required this.type,
     required this.name,
     required this.url,
+    this.pdfUrl,
     required this.sizeBytes,
     required this.extension,
     required this.updatedAt,
@@ -28,6 +30,7 @@ class FileItem {
       type: json['type'] as String? ?? 'FILE',
       name: json['name'] as String? ?? '',
       url: json['url'] as String?,
+      pdfUrl: json['pdf_url'] as String?,
       sizeBytes: json['size'] as int?,
       extension: json['extension'] as String?,
       updatedAt: (json['updated_at'] ?? json['updatedat']) as String? ?? '',
@@ -35,4 +38,3 @@ class FileItem {
     );
   }
 }
-

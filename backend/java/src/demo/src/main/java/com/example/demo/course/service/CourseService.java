@@ -7,10 +7,14 @@ import com.example.demo.course.dto.*;
 import com.example.demo.course.entity.Course;
 import com.example.demo.course.entity.CourseMember;
 import com.example.demo.course.entity.CourseSection;
+import com.example.demo.course.entity.SectionAiConfig;
+import com.example.demo.course.entity.SectionContent;
 import com.example.demo.course.repository.CourseFileRepository;
 import com.example.demo.course.repository.CourseMemberRepository;
 import com.example.demo.course.repository.CourseRepository;
 import com.example.demo.course.repository.CourseSectionRepository;
+import com.example.demo.course.repository.SectionAiConfigRepository;
+import com.example.demo.course.repository.SectionContentRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -28,17 +32,23 @@ public class CourseService {
     private final UserRepository userRepository;
     private final CourseSectionRepository sectionRepository;
     private final CourseFileRepository fileRepository;
+    private final SectionContentRepository sectionContentRepository;
+    private final SectionAiConfigRepository aiConfigRepository;
 
     public CourseService(CourseRepository courseRepository,
                          CourseMemberRepository courseMemberRepository,
                          UserRepository userRepository,
                          CourseSectionRepository sectionRepository,
-                         CourseFileRepository fileRepository) {
+                         CourseFileRepository fileRepository,
+                         SectionContentRepository sectionContentRepository,
+                         SectionAiConfigRepository aiConfigRepository) {
         this.courseRepository = courseRepository;
         this.courseMemberRepository = courseMemberRepository;
         this.userRepository = userRepository;
         this.sectionRepository = sectionRepository;
         this.fileRepository = fileRepository;
+        this.sectionContentRepository = sectionContentRepository;
+        this.aiConfigRepository = aiConfigRepository;
     }
 
     // ==================== 课程列表 (分页) ====================
@@ -51,7 +61,7 @@ public class CourseService {
             response.setTotal(publicCourses.getTotalElements());
             List<CourseListResponse.CourseListItem> items = new ArrayList<>();
             for (Course c : publicCourses.getContent()) {
-                items.add(toCourseListItem(c));
+                items.add(toCourseListItem(c, null));
             }
             response.setList(items);
             return response;
@@ -64,7 +74,7 @@ public class CourseService {
             response.setTotal(all.size());
             List<CourseListResponse.CourseListItem> items = new ArrayList<>();
             for (Course c : all) {
-                items.add(toCourseListItem(c));
+                items.add(toCourseListItem(c, user));
             }
             response.setList(items);
             return response;
@@ -77,13 +87,17 @@ public class CourseService {
         response.setTotal(coursePage.getTotalElements());
         List<CourseListResponse.CourseListItem> items = new ArrayList<>();
         for (Course c : coursePage.getContent()) {
-            items.add(toCourseListItem(c));
+            items.add(toCourseListItem(c, user));
         }
         response.setList(items);
         return response;
     }
 
     private CourseListResponse.CourseListItem toCourseListItem(Course c) {
+        return toCourseListItem(c, null);
+    }
+
+    private CourseListResponse.CourseListItem toCourseListItem(Course c, User currentUser) {
         CourseListResponse.CourseListItem item = new CourseListResponse.CourseListItem();
         item.setId(c.getId());
         item.setTitle(c.getTitle());
@@ -93,6 +107,22 @@ public class CourseService {
         item.setPermission(c.getPermission().name());
         // 查教师昵称
         userRepository.findById(c.getTeacherId()).ifPresent(t -> item.setTeacherName(t.getNickname()));
+        // 填充 is_joined / is_owner
+        if (currentUser != null) {
+            boolean isOwner = c.getTeacherId().equals(currentUser.getId());
+            item.setOwner(isOwner);
+            if (isOwner) {
+                item.setJoined(true);
+            } else {
+                boolean joined = courseMemberRepository.findByCourseIdAndUserId(c.getId(), currentUser.getId())
+                        .map(m -> m.getStatus() == CourseMember.MemberStatus.JOINED)
+                        .orElse(false);
+                item.setJoined(joined);
+            }
+        } else {
+            item.setJoined(false);
+            item.setOwner(false);
+        }
         return item;
     }
 
@@ -114,14 +144,52 @@ public class CourseService {
         }
         Course course = new Course();
         course.setTeacherId(teacher.getId());
-        course.setSchoolId(request.getSchoolId() != null ? request.getSchoolId() 
+        course.setSchoolId(request.getSchoolId() != null ? request.getSchoolId()
                 : (teacher.getSchoolId() != null ? teacher.getSchoolId() : 1L));
         course.setTitle(request.getTitle());
         course.setDescription(request.getDescription());
         course.setCoverImage(request.getCoverImage());
         course.setCreatedAt(LocalDateTime.now());
         course.setUpdatedAt(LocalDateTime.now());
-        return courseRepository.save(course);
+        Course saved = courseRepository.save(course);
+        // 自动创建三个默认栏目
+        _initDefaultSections(saved.getId());
+        return saved;
+    }
+
+    private void _initDefaultSections(Long courseId) {
+        // 讲义 (DISPLAY)
+        CourseSection display = new CourseSection();
+        display.setCourseId(courseId);
+        display.setTitle("讲义");
+        display.setType(CourseSection.SectionType.DISPLAY);
+        display.setOrderIndex(0);
+        CourseSection savedDisplay = sectionRepository.save(display);
+        SectionContent content = new SectionContent();
+        content.setSectionId(savedDisplay.getId());
+        content.setContent("# 课程讲义\n\n请在此编辑课程内容。");
+        sectionContentRepository.save(content);
+
+        // 资料 (STORAGE)
+        CourseSection storage = new CourseSection();
+        storage.setCourseId(courseId);
+        storage.setTitle("资料");
+        storage.setType(CourseSection.SectionType.STORAGE);
+        storage.setOrderIndex(1);
+        sectionRepository.save(storage);
+
+        // AI 助教 (AI)
+        CourseSection ai = new CourseSection();
+        ai.setCourseId(courseId);
+        ai.setTitle("AI 助教");
+        ai.setType(CourseSection.SectionType.AI);
+        ai.setOrderIndex(2);
+        CourseSection savedAi = sectionRepository.save(ai);
+        SectionAiConfig aiConfig = new SectionAiConfig();
+        aiConfig.setSectionId(savedAi.getId());
+        aiConfig.setWelcomeMessage("你好！我是本课程的AI助教，有什么问题尽管问我。");
+        aiConfig.setSystemPrompt("你是一个友好且专业的AI助教，帮助学生解答课程相关问题。");
+        aiConfigRepository.save(aiConfig);
     }
 
     // 旧版兼容
@@ -168,7 +236,10 @@ public class CourseService {
         userRepository.findById(course.getTeacherId())
                 .ifPresent(t -> detail.setTeacherName(t.getNickname()));
 
-        boolean joined = courseMemberRepository.findByCourseIdAndUserId(courseId, user.getId())
+        boolean isOwner = course.getTeacherId().equals(user.getId());
+        detail.setOwner(isOwner);
+
+        boolean joined = isOwner || courseMemberRepository.findByCourseIdAndUserId(courseId, user.getId())
                 .map(m -> m.getStatus() == CourseMember.MemberStatus.JOINED)
                 .orElse(false);
         detail.setJoined(joined);
@@ -222,6 +293,16 @@ public class CourseService {
     public Map<String, Object> enrollCourse(Long courseId, User student, String applyReason) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "课程不存在"));
+
+        // 教师不能加入课程（只有学生身份可以加入）
+        if (student.getRole() == Role.TEACHER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "教师身份无法加入课程");
+        }
+
+        // 课程创建者不能加入自己的课程
+        if (course.getTeacherId().equals(student.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "不能加入自己创建的课程");
+        }
 
         if (courseMemberRepository.findByCourseIdAndUserId(courseId, student.getId()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "已在课程中或已提交申请");

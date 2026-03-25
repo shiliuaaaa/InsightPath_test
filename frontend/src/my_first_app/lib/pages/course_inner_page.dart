@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
@@ -9,6 +12,8 @@ import '../models/file_list_response.dart';
 import '../services/section_service.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
+import '../utils/app_theme.dart';
+import 'courseware_viewer_page.dart';
 
 class CourseInnerPage extends StatefulWidget {
   final Course course;
@@ -212,6 +217,97 @@ class _CourseInnerPageState extends State<CourseInnerPage>
   }
 
   // ========== 资料相关 ==========
+  bool _uploading = false;
+
+  Future<void> _createFolder() async {
+    if (_storageSection == null || _storageSection!.id == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('资料栏目未初始化，请刷新页面重试')));
+      return;
+    }
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.create_new_folder_outlined, color: AppTheme.primary),
+          SizedBox(width: 10),
+          Text('新建文件夹'),
+        ]),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: '文件夹名称'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+    final ok = await _sectionService.createFolder(
+      courseId: widget.course.id,
+      sectionId: _storageSection!.id,
+      name: name,
+      parentId: _currentFolderId,
+    );
+    if (!mounted) return;
+    if (ok) {
+      _loadFiles(parentId: _currentFolderId);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('创建文件夹失败，请重试')));
+    }
+  }
+
+  Future<void> _uploadFile() async {
+    if (_storageSection == null || _storageSection!.id == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('资料栏目未初始化，请刷新页面重试')));
+      return;
+    }
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      type: FileType.any,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final picked = result.files.first;
+    if (picked.path == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final ok = await _sectionService.uploadFile(
+        courseId: widget.course.id,
+        sectionId: _storageSection!.id,
+        file: File(picked.path!),
+        fileName: picked.name,
+        parentId: _currentFolderId,
+      );
+      if (!mounted) return;
+      if (ok) {
+        _loadFiles(parentId: _currentFolderId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${picked.name}" 上传成功'),
+            backgroundColor: AppTheme.successColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('上传失败，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
   Future<void> _loadStorageSection() async {
     setState(() {
       _loadingFiles = true;
@@ -357,6 +453,21 @@ class _CourseInnerPageState extends State<CourseInnerPage>
     }
   }
 
+  IconData _fileIcon(String? ext) {
+    switch ((ext ?? '').toLowerCase()) {
+      case 'pdf': return Icons.picture_as_pdf_rounded;
+      case 'doc': case 'docx': return Icons.description_rounded;
+      case 'xls': case 'xlsx': return Icons.table_chart_rounded;
+      case 'ppt': case 'pptx': return Icons.slideshow_rounded;
+      case 'jpg': case 'jpeg': case 'png': case 'gif': case 'webp': return Icons.image_rounded;
+      case 'mp4': case 'mov': case 'avi': return Icons.video_file_rounded;
+      case 'mp3': case 'wav': return Icons.audio_file_rounded;
+      case 'zip': case 'rar': case '7z': return Icons.folder_zip_rounded;
+      case 'txt': case 'md': return Icons.text_snippet_rounded;
+      default: return Icons.insert_drive_file_rounded;
+    }
+  }
+
   String _formatSize(int? sizeBytes) {
     if (sizeBytes == null || sizeBytes <= 0) return '';
     if (sizeBytes < 1024) return '$sizeBytes B';
@@ -388,56 +499,53 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                   final item = _files[index];
                   final isFolder = item.type == 'FOLDER';
 
-                  return ListTile(
-                    leading: Icon(
-                      isFolder ? Icons.folder : Icons.insert_drive_file,
-                      color: isFolder ? Colors.amber : null,
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: const Border.fromBorderSide(BorderSide(color: Color(0xFFF0F0F5))),
                     ),
-                    title: Text(item.name),
+                    child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                    leading: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: isFolder
+                            ? const Color(0xFFFFF3E0)
+                            : AppTheme.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isFolder ? Icons.folder_rounded : _fileIcon(item.extension),
+                        color: isFolder ? const Color(0xFFF59E0B) : AppTheme.primary,
+                        size: 22,
+                      ),
+                    ),
+                    title: Text(item.name,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.titleColor),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(
-                      item.updatedAt,
-                      style: const TextStyle(fontSize: 12),
+                      isFolder ? '${item.itemCount ?? 0} 项' : _formatSize(item.sizeBytes),
+                      style: const TextStyle(fontSize: 12, color: AppTheme.hintColor),
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isFolder)
-                          Text('${item.itemCount ?? 0} 项',
-                              style: const TextStyle(fontSize: 12))
-                        else
-                          Text(_formatSize(item.sizeBytes),
-                              style: const TextStyle(fontSize: 12)),
-                        const SizedBox(width: 4),
-                        if (_role == 'TEACHER')
-                          PopupMenuButton<String>(
+                    trailing: _role == 'TEACHER'
+                        ? PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.hintColor),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             onSelected: (value) {
-                              if (value == 'rename') {
-                                _renameItem(item);
-                              } else if (value == 'delete') {
-                                _deleteItem(item);
-                              }
+                              if (value == 'rename') { _renameItem(item); }
+                              else if (value == 'delete') { _deleteItem(item); }
                             },
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(
-                                value: 'rename',
-                                child: Row(children: [
-                                  Icon(Icons.edit, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('重命名'),
-                                ]),
-                              ),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Row(children: [
-                                  Icon(Icons.delete, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('删除'),
-                                ]),
-                              ),
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(value: 'rename',
+                                child: Row(children: [Icon(Icons.drive_file_rename_outline_rounded, size: 18), SizedBox(width: 8), Text('重命名')])),
+                              const PopupMenuItem(value: 'delete',
+                                child: Row(children: [Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red), SizedBox(width: 8), Text('删除', style: TextStyle(color: Colors.red))])),
                             ],
-                          ),
-                      ],
-                    ),
+                          )
+                        : const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.hintColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     onTap: isFolder
                         ? () {
                             _folderStack.add(item);
@@ -445,8 +553,32 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                                 parentId: int.tryParse(item.id) ?? 0);
                           }
                         : () {
-                            // TODO: 打开/下载文件
+                            // 跳转到预览页面
+                            final hasPdf = item.pdfUrl != null && item.pdfUrl!.isNotEmpty;
+                            final ext = (item.extension ?? '').toLowerCase();
+                            const imageExts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'};
+                            final isImage = imageExts.contains(ext);
+                            final canPreview = hasPdf || isImage || ext == 'pdf';
+
+                            if (canPreview || (item.url != null && item.url!.isNotEmpty)) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CoursewareViewerPage(
+                                    fileName: item.name,
+                                    pdfUrl: hasPdf ? item.pdfUrl : (ext == 'pdf' ? _sectionService.getFileAccessUrl(item.url!) : null),
+                                    rawUrl: item.url,
+                                    extension: item.extension,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('该格式暂不支持在线预览')),
+                              );
+                            }
                           },
+                  ),
                   );
                 },
               ),
@@ -508,28 +640,38 @@ class _CourseInnerPageState extends State<CourseInnerPage>
             ),
           ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Row(
             children: [
               if (_role == 'TEACHER') ...[  
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('新建文件夹功能待实现')),
-                    );
-                  },
-                  icon: const Icon(Icons.create_new_folder, size: 18),
-                  label: const Text('新建文件夹'),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _createFolder,
+                    icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+                    label: const Text('新建文件夹'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primary,
+                      side: const BorderSide(color: AppTheme.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('上传文件功能待实现')),
-                    );
-                  },
-                  icon: const Icon(Icons.upload_file, size: 18),
-                  label: const Text('上传文件'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _uploading ? null : _uploadFile,
+                    icon: _uploading
+                        ? const SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.upload_file_rounded, size: 18),
+                    label: Text(_uploading ? '上传中...' : '上传文件'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.secondary,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                 ),
               ],
             ],

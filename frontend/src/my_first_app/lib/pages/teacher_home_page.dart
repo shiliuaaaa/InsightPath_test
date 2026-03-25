@@ -1,267 +1,396 @@
 import 'package:flutter/material.dart';
-
 import '../models/course.dart';
 import '../services/course_service.dart';
 import '../services/auth_service.dart';
+import '../utils/app_theme.dart';
 import 'course_detail_page.dart';
 import 'create_course_page.dart';
 import 'course_students_page.dart';
 import 'course_settings_page.dart';
 import 'login_page.dart';
-import '../widgets/profile_header.dart';
 
 class TeacherHomePage extends StatefulWidget {
   const TeacherHomePage({super.key});
-
   @override
   State<TeacherHomePage> createState() => _TeacherHomePageState();
 }
 
 class _TeacherHomePageState extends State<TeacherHomePage> {
-  final CourseService _courseService = CourseService();
-  final AuthService _auth = AuthService();
-
+  final _courseService = CourseService();
+  final _auth = AuthService();
   int _currentIndex = 0;
-
   bool _isLoading = false;
   String? _errorText;
   List<Course> _courses = [];
-
   String _username = '';
-  String _role = 'TEACHER';
-  String _school = '武汉大学';
+  String _school = '示例大学';
 
   @override
   void initState() {
     super.initState();
     _loadUser();
-    _loadTeacherCourses();
+    _loadCourses();
   }
 
   Future<void> _loadUser() async {
     final user = await _auth.getCurrentUser();
     if (!mounted) return;
     setState(() {
-      _username = user?['username'] as String? ?? '';
-      _role = user?['role'] as String? ?? 'TEACHER';
-      _school = user?['school'] as String? ?? '武汉大学';
+      _username = user?['nickname'] as String? ?? user?['username'] as String? ?? '';
+      _school = user?['school'] as String? ?? '示例大学';
     });
   }
 
-  Future<void> _loadTeacherCourses() async {
-    setState(() {
-      _isLoading = true;
-      _errorText = null;
-    });
-
+  Future<void> _loadCourses() async {
+    setState(() { _isLoading = true; _errorText = null; });
     try {
       final list = await _courseService.fetchMyCourses();
-      setState(() {
-        _courses = list;
-      });
+      setState(() => _courses = list);
     } catch (e) {
-      setState(() {
-        _errorText = '加载课程失败：$e';
-      });
+      setState(() => _errorText = '加载课程失败：$e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _logout() async {
     await _auth.logout();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
   }
 
-  void _goToCreateCourse() async {
+  void _goCreate() async {
     final created = await Navigator.push<Course?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const CreateCoursePage(),
+      context, MaterialPageRoute(builder: (_) => const CreateCoursePage()));
+    if (created != null) setState(() => _courses = [created, ..._courses]);
+  }
+
+  void _showCourseActions(Course c, int index) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(color: AppTheme.borderColor, borderRadius: BorderRadius.circular(2))),
+            Text(c.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.titleColor)),
+            const SizedBox(height: 16),
+            _sheetTile(Icons.open_in_new_rounded, '进入课程', AppTheme.primary, 'detail'),
+            _sheetTile(Icons.settings_outlined, '课程设置', AppTheme.bodyColor, 'settings'),
+            _sheetTile(Icons.group_outlined, '学生管理', AppTheme.bodyColor, 'students'),
+          ],
+        ),
       ),
     );
-
-    if (created != null) {
-      setState(() {
-        _courses = [created, ..._courses];
-      });
+    if (!mounted) return;
+    if (action == 'detail') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CourseDetailPage(course: c)));
+    } else if (action == 'settings') {
+      final updated = await Navigator.push<Course?>(
+        context, MaterialPageRoute(builder: (_) => CourseSettingsPage(course: c)));
+      if (updated != null) setState(() => _courses[index] = updated);
+    } else if (action == 'students') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CourseStudentsPage(course: c)));
     }
   }
 
-  Widget _buildCourseManage() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    } else if (_errorText != null) {
-      return Center(child: Text(_errorText!));
-    } else if (_courses.isEmpty) {
-      return const Center(child: Text('你还没有创建任何课程'));
-    } else {
-      return RefreshIndicator(
-        onRefresh: _loadTeacherCourses,
-        child: ListView.builder(
-          itemCount: _courses.length,
-          itemBuilder: (context, index) {
-            final c = _courses[index];
-            return ListTile(
-              leading: const Icon(Icons.menu_book),
-              title: Text(c.title),
-              subtitle: Text('${c.teacherName} · ${c.status}'),
-              onTap: () async {
-                final action = await showModalBottomSheet<String>(
-                  context: context,
-                  builder: (context) {
-                    return SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.info),
-                            title: const Text('课程详情'),
-                            onTap: () => Navigator.pop(context, 'detail'),
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.settings),
-                            title: const Text('课程设置'),
-                            onTap: () => Navigator.pop(context, 'settings'),
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.group),
-                            title: const Text('学生管理'),
-                            onTap: () => Navigator.pop(context, 'students'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
+  Widget _sheetTile(IconData icon, String label, Color color, String value) => ListTile(
+    leading: Container(
+      width: 36, height: 36,
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+      child: Icon(icon, color: color, size: 18),
+    ),
+    title: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
+    trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor, size: 18),
+    onTap: () => Navigator.pop(context, value),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  );
 
-                if (action == 'detail') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CourseDetailPage(course: c),
-                    ),
-                  );
-                } else if (action == 'settings') {
-                  final updated = await Navigator.push<Course?>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CourseSettingsPage(course: c),
-                    ),
-                  );
-                  if (updated != null) {
-                    setState(() {
-                      _courses[index] = updated;
-                    });
-                  }
-                } else if (action == 'students') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CourseStudentsPage(course: c),
-                    ),
-                  );
-                }
-              },
-            );
-          },
-        ),
+  Widget _buildCoursesTab() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_errorText != null) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.hintColor),
+          const SizedBox(height: 12),
+          Text(_errorText!, style: const TextStyle(color: AppTheme.bodyColor)),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: _loadCourses, child: const Text('重试')),
+        ]),
       );
     }
-  }
-
-  Widget _buildProfile() {
-    return ListView(
-      children: [
-        ProfileHeader(
-          username: _username.isEmpty ? '未登录用户' : _username,
-          role: _role,
-          schoolName: _school,
-        ),
-        ListTile(
-          leading: const Icon(Icons.badge),
-          title: const Text('教师认证'),
-          subtitle: const Text('以后可接入教师认证状态'),
-          onTap: () {},
-        ),
-        ListTile(
-          leading: const Icon(Icons.school),
-          title: const Text('所属学校'),
-          subtitle: Text(_school),
-          onTap: () {},
-        ),
-        ListTile(
-          leading: const Icon(Icons.settings),
-          title: const Text('教学偏好设置'),
-          subtitle: const Text('如作业形式、评分方式等（预留）'),
-          onTap: () {},
-        ),
-        const Divider(),
-        ListTile(
-          leading: const Icon(Icons.logout, color: Colors.red),
-          title: const Text(
-            '退出登录',
-            style: TextStyle(color: Colors.red),
-          ),
-          onTap: _logout,
+    if (_courses.isEmpty) {
+      return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.08), shape: BoxShape.circle),
+          child: const Icon(Icons.add_box_outlined, size: 40, color: AppTheme.primary),
         ),
         const SizedBox(height: 16),
+        const Text('还没有课程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.titleColor)),
+        const SizedBox(height: 8),
+        const Text('点击右下角创建第一门课程', style: TextStyle(color: AppTheme.bodyColor)),
+      ]),
+    );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadCourses,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        itemCount: _courses.length,
+        itemBuilder: (_, i) => _TeacherCourseCard(
+          course: _courses[i],
+          onTap: () => _showCourseActions(_courses[i], i),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileTab() {
+    final initial = _username.isNotEmpty ? _username[0].toUpperCase() : 'T';
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF1A4F95), Color(0xFF3AAFA9)],
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_username.isEmpty ? '讲师' : _username,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text('讲师', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500)),
+                    ),
+                  ],
+                ),
+              ),
+              // 课程数统计
+              Column(
+                children: [
+                  Text('${_courses.length}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const Text('门课程', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _sectionTitle('账户信息'),
+        _infoCard([
+          _infoTile(Icons.person_outline_rounded, '用户名', _username.isEmpty ? '未设置' : _username),
+          _infoTile(Icons.school_outlined, '学校', _school),
+          _infoTile(Icons.badge_outlined, '身份', '讲师'),
+        ]),
+        const SizedBox(height: 8),
+        _sectionTitle('功能'),
+        _infoCard([
+          _actionTile(Icons.verified_outlined, '教师认证', () {}),
+          _actionTile(Icons.tune_outlined, '教学偏好', () {}),
+        ]),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: OutlinedButton.icon(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded, size: 18),
+            label: const Text('退出登录'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.errorColor,
+              side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.5)),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
       ],
     );
   }
 
+  Widget _sectionTitle(String t) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+    child: Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.hintColor, letterSpacing: 0.5)),
+  );
+
+  Widget _infoCard(List<Widget> children) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white, borderRadius: BorderRadius.circular(16),
+      border: const Border.fromBorderSide(BorderSide(color: Color(0xFFF0F0F5))),
+    ),
+    child: Column(children: children),
+  );
+
+  Widget _infoTile(IconData icon, String label, String value) => ListTile(
+    leading: Icon(icon, color: AppTheme.primary, size: 20),
+    title: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
+    trailing: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.titleColor)),
+    dense: true,
+  );
+
+  Widget _actionTile(IconData icon, String label, VoidCallback onTap) => ListTile(
+    leading: Icon(icon, color: AppTheme.primary, size: 20),
+    title: Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.titleColor)),
+    trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.hintColor),
+    dense: true,
+    onTap: onTap,
+  );
+
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      _buildCourseManage(),
-      _buildProfile(),
-    ];
-
     return Scaffold(
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: Text(_currentIndex == 0 ? '教师端首页' : '我的'),
+        title: Text(_currentIndex == 0 ? '我的课程' : '我的'),
         actions: [
           if (_currentIndex == 0)
-            IconButton(
-              onPressed: _loadTeacherCourses,
-              icon: const Icon(Icons.refresh),
-              tooltip: '刷新课程',
-            ),
-          IconButton(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout),
-            tooltip: '退出登录',
-          ),
+            IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _loadCourses),
         ],
       ),
-      body: pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [_buildCoursesTab(), _buildProfileTab()],
+      ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton.extended(
-              onPressed: _goToCreateCourse,
-              icon: const Icon(Icons.add),
-              label: const Text('新建课程'),
+              onPressed: _goCreate,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('新建课程', style: TextStyle(fontWeight: FontWeight.w600)),
             )
           : null,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) {
-          setState(() => _currentIndex = i);
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: '课程',
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF0F0F5)))),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book_rounded), label: '课程'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: '我的'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TeacherCourseCard extends StatelessWidget {
+  final Course course;
+  final VoidCallback onTap;
+  const _TeacherCourseCard({required this.course, required this.onTap});
+
+  String _statusLabel(String s) {
+    switch (s) {
+      case 'IN_PROGRESS': return '进行中';
+      case 'COMPLETED': return '已结课';
+      case 'PRE_RELEASE': return '未开课';
+      case 'HIDDEN': return '已隐藏';
+      default: return s;
+    }
+  }
+
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'IN_PROGRESS': return AppTheme.successColor;
+      case 'COMPLETED': return AppTheme.hintColor;
+      case 'HIDDEN': return AppTheme.errorColor;
+      default: return AppTheme.secondary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = course.title.isNotEmpty ? course.title[0] : '?';
+    final statusColor = _statusColor(course.status);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: const Border.fromBorderSide(BorderSide(color: Color(0xFFF0F0F5))),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 52, height: 52,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primary, AppTheme.secondary],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Center(child: Text(initial,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white))),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(course.title,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.titleColor),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          width: 6, height: 6,
+                          decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(_statusLabel(course.status),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: statusColor)),
+                        const SizedBox(width: 12),
+                        Icon(course.permission == 'OPEN' ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+                          size: 13, color: AppTheme.hintColor),
+                        const SizedBox(width: 4),
+                        Text(course.permission == 'OPEN' ? '直接加入' : '需审批',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.hintColor)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.more_vert_rounded, color: AppTheme.hintColor, size: 20),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
+        ),
       ),
     );
   }

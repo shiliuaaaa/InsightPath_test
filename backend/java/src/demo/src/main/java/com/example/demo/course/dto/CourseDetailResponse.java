@@ -17,6 +17,8 @@ public class CourseDetailResponse {
     private String teacherName;
     @JsonProperty("is_joined")
     private Boolean joined;
+    @JsonProperty("is_owner")
+    private Boolean owner;
     private CourseStats stats;
 
     @Data

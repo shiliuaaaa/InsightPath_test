@@ -192,6 +192,7 @@ public class SectionService {
                 item.put("url", file.getFileUrl());
                 item.put("size", file.getFileSize());
                 item.put("extension", file.getFileExt());
+                item.put("pdf_url", file.getPdfUrl());
             }
             fileList.add(item);
         }

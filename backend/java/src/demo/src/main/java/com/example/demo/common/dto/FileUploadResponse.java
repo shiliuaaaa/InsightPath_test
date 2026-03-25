@@ -8,12 +8,21 @@ public class FileUploadResponse {
 	private String url;
 	private long size;
 	private FileUsage usage;
+	private String pdfUrl;
 
 	public FileUploadResponse(String filename, String url, long size, FileUsage usage) {
 		this.filename = filename;
 		this.url = url;
 		this.size = size;
 		this.usage = usage;
+	}
+
+	public String getPdfUrl() {
+		return pdfUrl;
+	}
+
+	public void setPdfUrl(String pdfUrl) {
+		this.pdfUrl = pdfUrl;
 	}
 
 	public String getFilename() {

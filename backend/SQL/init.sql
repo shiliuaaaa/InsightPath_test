@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS file_metadata (
     business_id BIGINT, -- 业务主ID: AVATAR->user_id, COURSE_COVER/COURSE_MATERIAL->course_id
     section_id BIGINT REFERENCES course_sections(id) ON DELETE SET NULL,
     storage_path VARCHAR(512) NOT NULL, -- 物理路径/对象存储 Key (禁止对前端暴露)
+    pdf_url VARCHAR(512),               -- 转码后的 PDF 预览链接 (Office 文件转码后填入)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -167,15 +168,27 @@ WITH school AS (
     SELECT t.id, s.id, '示例课程', '示例课程简介', 'IN_PROGRESS', 'PUBLIC', 'OPEN'
     FROM teacher t, school s
     RETURNING id
-), section AS (
+), sec_display AS (
     INSERT INTO course_sections (course_id, title, type, order_index)
-    SELECT c.id, 'AI 助教', 'AI', 0
-    FROM course c
+    SELECT c.id, '讲义', 'DISPLAY', 0 FROM course c
     RETURNING id
+), sec_storage AS (
+    INSERT INTO course_sections (course_id, title, type, order_index)
+    SELECT c.id, '资料', 'STORAGE', 1 FROM course c
+    RETURNING id
+), sec_ai AS (
+    INSERT INTO course_sections (course_id, title, type, order_index)
+    SELECT c.id, 'AI 助教', 'AI', 2 FROM course c
+    RETURNING id
+), init_display AS (
+    INSERT INTO section_contents (section_id, content)
+    SELECT id, '# 欢迎来到示例课程
+
+请教师在此编辑课程讲义内容。' FROM sec_display
 )
 INSERT INTO section_ai_configs (section_id, welcome_message, system_prompt, model_name)
 SELECT id, '欢迎来到课程AI助教！', '你是一个友好且知识渊博的AI助教，帮助学生解答课程相关问题。', 'deepseek-chat'
-FROM section;
+FROM sec_ai;
 
 INSERT INTO test_connection (info) VALUES ('Database connected successfully!');
 

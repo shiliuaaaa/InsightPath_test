@@ -64,11 +64,13 @@ public class CommonFileController {
 			courseFile.setFileUrl(metadata.getStoredName()); // 存储名，前端通过 file/access 接口访问
 			courseFile.setFileSize(metadata.getSize());
 			courseFile.setFileExt(ext.isEmpty() ? null : ext.substring(1)); // 去掉点号
+			courseFile.setPdfUrl(metadata.getPdfUrl());
 			courseFileRepository.save(courseFile);
 		}
 
 		FileUploadResponse response = new FileUploadResponse(metadata.getStoredName(), accessUrl,
 				metadata.getSize(), metadata.getUsage());
+		response.setPdfUrl(metadata.getPdfUrl());
 		return ApiResponse.success("上传成功", response);
 	}
 

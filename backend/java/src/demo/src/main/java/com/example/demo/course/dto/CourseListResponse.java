@@ -20,5 +20,9 @@ public class CourseListResponse {
         private String status;
         private String visibility;
         private String permission;
+        @JsonProperty("is_joined")
+        private Boolean joined;
+        @JsonProperty("is_owner")
+        private Boolean owner;
     }
 }

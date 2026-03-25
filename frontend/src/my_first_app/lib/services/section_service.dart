@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -257,6 +258,86 @@ class SectionService {
       }
       return false;
     }
+  }
+
+  /// 新建文件夹
+  Future<bool> createFolder({
+    required int courseId,
+    required int sectionId,
+    required String name,
+    int? parentId,
+  }) async {
+    try {
+      final token = await _auth.getSavedToken();
+      if (token == null) throw Exception('未登录');
+
+      final queryParams = <String, String>{'name': name};
+      if (parentId != null && parentId != 0) {
+        queryParams['parent_id'] = '$parentId';
+      }
+
+      final uri = Uri.parse(
+              '$baseUrl/courses/$courseId/sections/$sectionId/folders')
+          .replace(queryParameters: queryParams);
+
+      final resp = await _client.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (kDebugMode) print('createFolder status: ${resp.statusCode}');
+      return resp.statusCode == 200 || resp.statusCode == 201;
+    } catch (e) {
+      if (kDebugMode) print('createFolder error: $e');
+      return false;
+    }
+  }
+
+  /// 上传文件到课程资料区
+  Future<bool> uploadFile({
+    required int courseId,
+    required int sectionId,
+    required File file,
+    required String fileName,
+    int? parentId,
+  }) async {
+    try {
+      final token = await _auth.getSavedToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/common/upload');
+      final request = http.MultipartRequest('POST', uri)
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['usage'] = 'COURSE_MATERIAL'
+        ..fields['id'] = '$courseId'
+        ..fields['section_id'] = '$sectionId';
+
+      if (parentId != null && parentId != 0) {
+        request.fields['parent_id'] = '$parentId';
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        file.path,
+        filename: fileName,
+      ));
+
+      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final resp = await http.Response.fromStream(streamed);
+
+      if (kDebugMode) print('uploadFile status: ${resp.statusCode}, body: ${resp.body}');
+      return resp.statusCode == 200 || resp.statusCode == 201;
+    } catch (e) {
+      if (kDebugMode) print('uploadFile error: $e');
+      return false;
+    }
+  }
+
+  /// 获取文件下载/访问 URL
+  String getFileAccessUrl(String storedName) {
+    return '$baseUrl/common/static/$storedName?usage=COURSE_MATERIAL';
   }
 
   // ========== 假数据 ==========

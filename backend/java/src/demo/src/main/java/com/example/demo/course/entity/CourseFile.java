@@ -35,6 +35,9 @@ public class CourseFile {
     @Column(name = "file_ext", length = 20)
     private String fileExt;
 
+    @Column(name = "pdf_url", length = 512)
+    private String pdfUrl;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

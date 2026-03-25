@@ -45,6 +45,9 @@ public class FileMetadata {
 	@Column(name = "storage_path", nullable = false, length = 512)
 	private String storagePath;
 
+	@Column(name = "pdf_url", length = 512)
+	private String pdfUrl;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
@@ -119,6 +122,14 @@ public class FileMetadata {
 
 	public void setStoragePath(String storagePath) {
 		this.storagePath = storagePath;
+	}
+
+	public String getPdfUrl() {
+		return pdfUrl;
+	}
+
+	public void setPdfUrl(String pdfUrl) {
+		this.pdfUrl = pdfUrl;
 	}
 
 	public LocalDateTime getCreatedAt() {

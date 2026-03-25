@@ -24,6 +24,13 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
+# 安装 LibreOffice 及中文字体（用于 Office 课件转码为 PDF）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice \
+    fonts-wqy-zenhei \
+    fonts-wqy-microhei \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # 1. 从上面的build阶段的结果中将运行结果直接拷贝进来
 COPY --from=build /app/target/*.jar app.jar
 
