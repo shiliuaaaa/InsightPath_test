@@ -1,6 +1,7 @@
 package com.example.demo.auth.dto;
 
 import com.example.demo.auth.entity.Role;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class UserInfo {
 
@@ -14,8 +15,10 @@ public class UserInfo {
 
 	private String avatar;
 
-	private Integer schoolId;
+	@JsonProperty("school_id")
+	private Long schoolId;
 
+	@JsonProperty("is_verified")
 	private boolean isVerified;
 
 	public Long getId() {
@@ -58,11 +61,11 @@ public class UserInfo {
 		this.avatar = avatar;
 	}
 
-	public Integer getSchoolId() {
+	public Long getSchoolId() {
 		return schoolId;
 	}
 
-	public void setSchoolId(Integer schoolId) {
+	public void setSchoolId(Long schoolId) {
 		this.schoolId = schoolId;
 	}
 

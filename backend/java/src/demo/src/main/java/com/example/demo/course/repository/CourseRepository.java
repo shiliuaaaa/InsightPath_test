@@ -1,49 +1,46 @@
 package com.example.demo.course.repository;
 
 import com.example.demo.course.entity.Course;
-import com.example.demo.course.entity.CourseStatus;
-import com.example.demo.course.entity.CourseVisibility;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 
 @Repository
 public interface CourseRepository extends JpaRepository<Course, Long> {
-
-    // 根据教师ID查询课程
+    
     List<Course> findByTeacherId(Long teacherId);
 
-    // 根据学校ID查询课程
-    Page<Course> findBySchoolId(Long schoolId, Pageable pageable);
+    @Query("SELECT c FROM Course c WHERE c.status = 'IN_PROGRESS' AND " +
+           "(c.visibility = 'PUBLIC' OR (c.visibility = 'RESTRICTED' AND c.schoolId = :schoolId))")
+    List<Course> findVisibleCoursesForStudent(@Param("schoolId") Long schoolId);
 
-    // 查询公开课程（学生端）
-    @Query("SELECT c FROM Course c WHERE c.status IN :statuses AND c.visibility = :visibility")
-    Page<Course> findByStatusInAndVisibility(
-            @Param("statuses") List<CourseStatus> statuses,
-            @Param("visibility") CourseVisibility visibility,
-            Pageable pageable
-    );
-
-    // 根据学校和可见性查询课程
-    @Query("SELECT c FROM Course c WHERE c.schoolId = :schoolId AND c.status IN :statuses AND c.visibility IN :visibilities")
-    Page<Course> findBySchoolIdAndStatusInAndVisibilityIn(
+    @Query(value = "SELECT * FROM courses c WHERE c.status IN ('IN_PROGRESS', 'COMPLETED') " +
+           "AND (c.visibility = 'PUBLIC' OR (c.visibility = 'RESTRICTED' AND c.school_id = :schoolId)) " +
+           "AND (:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%'))) " +
+           "AND (:schoolFilter IS NULL OR c.school_id = CAST(:schoolFilter AS bigint))",
+           countQuery = "SELECT COUNT(*) FROM courses c WHERE c.status IN ('IN_PROGRESS', 'COMPLETED') " +
+           "AND (c.visibility = 'PUBLIC' OR (c.visibility = 'RESTRICTED' AND c.school_id = :schoolId)) " +
+           "AND (:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%'))) " +
+           "AND (:schoolFilter IS NULL OR c.school_id = CAST(:schoolFilter AS bigint))",
+           nativeQuery = true)
+    Page<Course> findVisibleCoursesForStudentPaged(
             @Param("schoolId") Long schoolId,
-            @Param("statuses") List<CourseStatus> statuses,
-            @Param("visibilities") List<CourseVisibility> visibilities,
-            Pageable pageable
-    );
-
-    // 搜索课程（按标题）
-    @Query("SELECT c FROM Course c WHERE c.title LIKE %:keyword% AND c.status IN :statuses")
-    Page<Course> searchByKeyword(
             @Param("keyword") String keyword,
-            @Param("statuses") List<CourseStatus> statuses,
-            Pageable pageable
-    );
-}
+            @Param("schoolFilter") Long schoolFilter,
+            Pageable pageable);
 
+    @Query(value = "SELECT * FROM courses c WHERE c.status IN ('IN_PROGRESS', 'COMPLETED') " +
+           "AND c.visibility = 'PUBLIC' " +
+           "AND (:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%')))",
+           countQuery = "SELECT COUNT(*) FROM courses c WHERE c.status IN ('IN_PROGRESS', 'COMPLETED') " +
+           "AND c.visibility = 'PUBLIC' " +
+           "AND (:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS text), '%')))",
+           nativeQuery = true)
+    Page<Course> findPublicCoursesPaged(
+            @Param("keyword") String keyword,
+            Pageable pageable);
+}

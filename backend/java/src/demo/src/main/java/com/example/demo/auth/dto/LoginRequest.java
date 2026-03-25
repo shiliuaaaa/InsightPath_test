@@ -1,5 +1,7 @@
 package com.example.demo.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -10,9 +12,11 @@ public class LoginRequest {
 	private String username;
 
 	@NotBlank(message = "密码不能为空")
-	@Size(min = 4, max = 32, message = "密码长度需在4-32个字符")
+	// 密码在客户端已 RSA 加密，此处接收密文，不对密文做长度校验
 	private String password;
 
+	
+	@JsonProperty("device_id")
 	@NotBlank(message = "设备ID不能为空")
 	private String deviceId;
 

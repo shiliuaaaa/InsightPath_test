@@ -1,6 +1,7 @@
 package com.example.demo.auth.dto;
 
 import com.example.demo.auth.entity.Role;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -17,8 +18,8 @@ public class RegisterRequest {
 	private String username;
 
 	@NotBlank(message = "密码不能为空")
-	@Size(min = 4, max = 32, message = "密码长度需在4-32个字符")
-	@Pattern(regexp = "^[a-zA-Z0-9]+$", message = "密码仅支持字母和数字")
+	// 注意：密码在客户端已经 RSA 加密，此处接收密文，不对密文做格式/长度校验
+	// 明文校验在 UserService.validatePasswordRule() 中对解密后的内容执行
 	private String password;
 
 	@NotBlank(message = "手机号不能为空")
@@ -30,6 +31,11 @@ public class RegisterRequest {
 
 	@NotNull(message = "角色不能为空")
 	private Role role;
+
+	@JsonProperty("sms_code")
+	@NotBlank(message = "验证码不能为空")
+	@Pattern(regexp = "^\\d{6}$", message = "验证码必须是6位数字")
+	private String smsCode;
 
 	public String getUsername() {
 		return username;
@@ -69,5 +75,13 @@ public class RegisterRequest {
 
 	public void setRole(Role role) {
 		this.role = role;
+	}
+
+	public String getSmsCode() {
+		return smsCode;
+	}
+
+	public void setSmsCode(String smsCode) {
+		this.smsCode = smsCode;
 	}
 }

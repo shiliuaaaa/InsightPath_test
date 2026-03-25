@@ -3,7 +3,9 @@ import os
 from logging.handlers import RotatingFileHandler
 
 
-def setup_logging(name: str = "AIService", log_dir: str = "/app/logs") -> logging.Logger:
+def setup_logging(name: str = "AIService", log_dir: str = None) -> logging.Logger:
+    if log_dir is None:
+        log_dir = os.environ.get("LOG_DIR", "/tmp/insightpath_logs")
     """Configure rotating file + console logger and return logger instance.
 
     - log_dir: ensure exists

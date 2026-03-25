@@ -12,12 +12,12 @@ CREATE TABLE IF NOT EXISTS schools (
 -- 2. 用户表 (Users) - 核心用户
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(100) NOT NULL UNIQUE,
+    username VARCHAR(32) NOT NULL UNIQUE,
     phone VARCHAR(20) NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    nickname VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(100) NOT NULL,
+    nickname VARCHAR(32) NOT NULL,
     avatar_url VARCHAR(255),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('STUDENT', 'TEACHER')),
+    role VARCHAR(16) NOT NULL CHECK (role IN ('STUDENT', 'TEACHER')),
     school_id BIGINT REFERENCES schools(id), -- 学生选填，教师认证后更新
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -99,6 +99,29 @@ CREATE TABLE IF NOT EXISTS course_files (
     file_ext VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 8.1 课程文件索引 (加速目录树查询)
+CREATE INDEX IF NOT EXISTS idx_course_files_section_id ON course_files(section_id);
+CREATE INDEX IF NOT EXISTS idx_course_files_parent_id ON course_files(parent_id);
+
+-- 8.2 文件元数据表 (FileMetadata) - 统一文件上传/下载入口
+-- usage: AVATAR, COURSE_COVER, COURSE_MATERIAL
+CREATE TABLE IF NOT EXISTS file_metadata (
+    id BIGSERIAL PRIMARY KEY,
+    original_name VARCHAR(255) NOT NULL,
+    stored_name VARCHAR(255) NOT NULL UNIQUE, -- 存储在磁盘/OSS 的唯一文件名
+    usage VARCHAR(32) NOT NULL CHECK (usage IN ('AVATAR', 'COURSE_COVER', 'COURSE_MATERIAL')),
+    size BIGINT NOT NULL,
+    content_type VARCHAR(100),
+    business_id BIGINT, -- 业务主ID: AVATAR->user_id, COURSE_COVER/COURSE_MATERIAL->course_id
+    section_id BIGINT REFERENCES course_sections(id) ON DELETE SET NULL,
+    storage_path VARCHAR(512) NOT NULL, -- 物理路径/对象存储 Key (禁止对前端暴露)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_metadata_usage ON file_metadata(usage);
+CREATE INDEX IF NOT EXISTS idx_file_metadata_business_id ON file_metadata(business_id);
+CREATE INDEX IF NOT EXISTS idx_file_metadata_section_id ON file_metadata(section_id);
 
 -- 9. AI配置表 (SectionAIConfigs) - 1:1 扩展 (type=AI)
 CREATE TABLE IF NOT EXISTS section_ai_configs (

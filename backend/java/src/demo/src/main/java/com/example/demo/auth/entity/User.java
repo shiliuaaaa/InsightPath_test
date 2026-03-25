@@ -43,7 +43,7 @@ public class User {
 	private Role role;
 
 	@Column(name = "school_id")
-	private Integer schoolId;
+	private Long schoolId;
 
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
@@ -109,11 +109,11 @@ public class User {
 		this.role = role;
 	}
 
-	public Integer getSchoolId() {
+	public Long getSchoolId() {
 		return schoolId;
 	}
 
-	public void setSchoolId(Integer schoolId) {
+	public void setSchoolId(Long schoolId) {
 		this.schoolId = schoolId;
 	}
 

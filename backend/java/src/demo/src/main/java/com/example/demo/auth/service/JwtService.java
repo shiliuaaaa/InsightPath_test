@@ -5,7 +5,9 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -51,5 +53,12 @@ public class JwtService {
 				.build()
 				.parseSignedClaims(token)
 				.getPayload();
+	}
+
+	public String extractBearerToken(String authorization) {
+		if (authorization == null || !authorization.startsWith("Bearer ")) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "缺少有效的Authorization头");
+		}
+		return authorization.substring("Bearer ".length()).trim();
 	}
 }

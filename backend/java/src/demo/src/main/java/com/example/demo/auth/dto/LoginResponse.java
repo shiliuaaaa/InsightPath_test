@@ -1,9 +1,12 @@
 package com.example.demo.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class LoginResponse {
 
 	private String token;
 
+	@JsonProperty("user_info")
 	private UserInfo userInfo;
 
 	public LoginResponse() {
