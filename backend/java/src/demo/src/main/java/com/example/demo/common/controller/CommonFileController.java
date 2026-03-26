@@ -51,6 +51,7 @@ public class CommonFileController {
 		FileMetadata metadata = fileStorageService.store(file, usage, businessId, sectionId);
 		String accessUrl = "/api/v1/common/file/access";
 
+		Long courseFileId = null;
 		// 如果是课件上传，同步在 course_files 表创建 FILE 记录
 		if (usage == FileUsage.COURSE_MATERIAL && sectionId != null) {
 			String originalName = Objects.requireNonNullElse(file.getOriginalFilename(), "unknown");
@@ -65,11 +66,12 @@ public class CommonFileController {
 			courseFile.setFileSize(metadata.getSize());
 			courseFile.setFileExt(ext.isEmpty() ? null : ext.substring(1)); // 去掉点号
 			courseFile.setPdfUrl(metadata.getPdfUrl());
-			courseFileRepository.save(courseFile);
+			courseFileId = courseFileRepository.save(courseFile).getId();
 		}
 
 		FileUploadResponse response = new FileUploadResponse(metadata.getStoredName(), accessUrl,
 				metadata.getSize(), metadata.getUsage());
+		response.setCourseFileId(courseFileId);
 		response.setPdfUrl(metadata.getPdfUrl());
 		return ApiResponse.success("上传成功", response);
 	}
@@ -130,7 +132,7 @@ public class CommonFileController {
 			}
 		}
 		if (usage == FileUsage.COURSE_COVER && businessId == null) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "上传封面必须提供 id");
+			return;
 		}
 	}
 

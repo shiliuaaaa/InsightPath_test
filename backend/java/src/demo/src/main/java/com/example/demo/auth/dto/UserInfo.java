@@ -15,8 +15,15 @@ public class UserInfo {
 
 	private String avatar;
 
+	@JsonProperty("bg_url")
+	private String bgUrl;
+
+	private String bio;
+
 	@JsonProperty("school_id")
 	private Long schoolId;
+
+	private String school;
 
 	@JsonProperty("is_verified")
 	private boolean isVerified;
@@ -61,12 +68,36 @@ public class UserInfo {
 		this.avatar = avatar;
 	}
 
+	public String getBgUrl() {
+		return bgUrl;
+	}
+
+	public void setBgUrl(String bgUrl) {
+		this.bgUrl = bgUrl;
+	}
+
+	public String getBio() {
+		return bio;
+	}
+
+	public void setBio(String bio) {
+		this.bio = bio;
+	}
+
 	public Long getSchoolId() {
 		return schoolId;
 	}
 
 	public void setSchoolId(Long schoolId) {
 		this.schoolId = schoolId;
+	}
+
+	public String getSchool() {
+		return school;
+	}
+
+	public void setSchool(String school) {
+		this.school = school;
 	}
 
 	public boolean isVerified() {

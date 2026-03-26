@@ -9,12 +9,21 @@ public class FileUploadResponse {
 	private long size;
 	private FileUsage usage;
 	private String pdfUrl;
+	private Long courseFileId;
 
 	public FileUploadResponse(String filename, String url, long size, FileUsage usage) {
 		this.filename = filename;
 		this.url = url;
 		this.size = size;
 		this.usage = usage;
+	}
+
+	public Long getCourseFileId() {
+		return courseFileId;
+	}
+
+	public void setCourseFileId(Long courseFileId) {
+		this.courseFileId = courseFileId;
 	}
 
 	public String getPdfUrl() {

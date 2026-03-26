@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,15 +29,15 @@ public class GlobalChatService {
     private final AiChatSessionRepository sessionRepository;
     private final GlobalAiChatMessageRepository messageRepository;
     private final RestTemplate restTemplate;
-    private final String pythonAiUrl;
+    private final String pythonServiceBaseUrl;
 
     public GlobalChatService(AiChatSessionRepository sessionRepository,
                              GlobalAiChatMessageRepository messageRepository,
-                             @Value("${python.ai.url:http://localhost:5001/api/v1/chat/global}") String pythonAiUrl) {
+                             @Value("${app.ai.python-service-url:http://localhost:5001}") String pythonServiceBaseUrl) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
         this.restTemplate = new RestTemplate();
-        this.pythonAiUrl = pythonAiUrl;
+        this.pythonServiceBaseUrl = pythonServiceBaseUrl;
     }
 
     public GlobalChatSessionResponse createSession(Long userId, String title) {
@@ -65,17 +67,29 @@ public class GlobalChatService {
         return response;
     }
 
-    public String sendMessage(Long userId, Long sessionId, String userContent) {
+    public String sendMessage(Long userId, Long sessionId, String userContent, boolean enableWebSearch, String fileContext) {
         if (userContent == null || userContent.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "消息内容不能为空");
         }
 
         AiChatSession session = requireOwnedSession(userId, sessionId);
 
+        String finalUserContent = userContent.trim();
+        if (fileContext != null && !fileContext.isBlank()) {
+            finalUserContent = finalUserContent + "\n\n【附件内容】\n" + fileContext.trim();
+        }
+
+        if (enableWebSearch) {
+            String webContext = fetchWebContext(userContent.trim());
+            if (webContext != null && !webContext.isBlank()) {
+                finalUserContent = finalUserContent + "\n\n【联网检索结果】\n" + webContext;
+            }
+        }
+
         AiChatMessage userMessage = new AiChatMessage();
         userMessage.setSessionId(session.getId());
         userMessage.setRole("user");
-        userMessage.setContent(userContent.trim());
+        userMessage.setContent(finalUserContent);
         messageRepository.save(userMessage);
 
         List<AiChatMessage> historyMessages = messageRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
@@ -112,7 +126,11 @@ public class GlobalChatService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(pythonAiUrl, entity, Map.class);
+            ResponseEntity<Map> response = restTemplate.postForEntity(
+                    pythonServiceBaseUrl + "/api/v1/chat/global",
+                    entity,
+                    Map.class
+            );
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI 服务响应异常");
             }
@@ -133,7 +151,55 @@ public class GlobalChatService {
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (Exception ex) {
-            return "这是假数据回复";
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI 服务暂不可用");
+        }
+    }
+
+    private String fetchWebContext(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        try {
+            String url = pythonServiceBaseUrl
+                    + "/api/v1/web/search?query="
+                    + URLEncoder.encode(keyword, StandardCharsets.UTF_8);
+            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                return null;
+            }
+            Object data = response.getBody().get("data");
+            if (!(data instanceof Map<?, ?> dataMap)) {
+                return null;
+            }
+            Object results = dataMap.get("results");
+            if (!(results instanceof List<?> list) || list.isEmpty()) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder();
+            int count = 0;
+            for (Object item : list) {
+                if (!(item instanceof Map<?, ?> row)) {
+                    continue;
+                }
+                if (count >= 3) {
+                    break;
+                }
+                Object title = row.get("title");
+                Object snippet = row.get("snippet");
+                Object link = row.get("link");
+                sb.append("- ")
+                        .append(title == null ? "(无标题)" : title.toString())
+                        .append("\n  ")
+                        .append(snippet == null ? "" : snippet.toString())
+                        .append("\n  来源: ")
+                        .append(link == null ? "" : link.toString())
+                        .append("\n");
+                count++;
+            }
+            String text = sb.toString().trim();
+            return text.isEmpty() ? null : text;
+        } catch (Exception ignored) {
+            return null;
         }
     }
 

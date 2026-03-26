@@ -3,6 +3,8 @@ package com.example.demo.course.service;
 import com.example.demo.auth.entity.Role;
 import com.example.demo.auth.entity.User;
 import com.example.demo.auth.repository.UserRepository;
+import com.example.demo.common.entity.FileUsage;
+import com.example.demo.common.repository.FileMetadataRepository;
 import com.example.demo.course.dto.*;
 import com.example.demo.course.entity.Course;
 import com.example.demo.course.entity.CourseMember;
@@ -19,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -34,6 +37,7 @@ public class CourseService {
     private final CourseFileRepository fileRepository;
     private final SectionContentRepository sectionContentRepository;
     private final SectionAiConfigRepository aiConfigRepository;
+    private final FileMetadataRepository fileMetadataRepository;
 
     public CourseService(CourseRepository courseRepository,
                          CourseMemberRepository courseMemberRepository,
@@ -41,7 +45,8 @@ public class CourseService {
                          CourseSectionRepository sectionRepository,
                          CourseFileRepository fileRepository,
                          SectionContentRepository sectionContentRepository,
-                         SectionAiConfigRepository aiConfigRepository) {
+                         SectionAiConfigRepository aiConfigRepository,
+                         FileMetadataRepository fileMetadataRepository) {
         this.courseRepository = courseRepository;
         this.courseMemberRepository = courseMemberRepository;
         this.userRepository = userRepository;
@@ -49,6 +54,7 @@ public class CourseService {
         this.fileRepository = fileRepository;
         this.sectionContentRepository = sectionContentRepository;
         this.aiConfigRepository = aiConfigRepository;
+        this.fileMetadataRepository = fileMetadataRepository;
     }
 
     // ==================== 课程列表 (分页) ====================
@@ -187,8 +193,9 @@ public class CourseService {
         CourseSection savedAi = sectionRepository.save(ai);
         SectionAiConfig aiConfig = new SectionAiConfig();
         aiConfig.setSectionId(savedAi.getId());
-        aiConfig.setWelcomeMessage("你好！我是本课程的AI助教，有什么问题尽管问我。");
-        aiConfig.setSystemPrompt("你是一个友好且专业的AI助教，帮助学生解答课程相关问题。");
+        aiConfig.setPageNumber(1);
+        aiConfig.setPrompt("你是一个友好且专业的AI助教，帮助学生解答课程相关问题。");
+        aiConfig.setGeneratedDsl("{}");
         aiConfigRepository.save(aiConfig);
     }
 
@@ -202,6 +209,29 @@ public class CourseService {
         course.setCreatedAt(LocalDateTime.now());
         course.setUpdatedAt(LocalDateTime.now());
         return courseRepository.save(course);
+    }
+
+    // ==================== 删除课程 ====================
+
+    @Transactional
+    public void deleteCourse(Long courseId, User teacher) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "课程不存在"));
+        if (!course.getTeacherId().equals(teacher.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权删除此课程");
+        }
+
+        List<CourseSection> sections = sectionRepository.findByCourseIdOrderByOrderIndexAsc(courseId);
+        List<Long> sectionIds = sections.stream().map(CourseSection::getId).toList();
+
+        courseMemberRepository.deleteByCourseId(courseId);
+        fileMetadataRepository.deleteByBusinessIdAndUsage(courseId, FileUsage.COURSE_COVER);
+        fileMetadataRepository.deleteByBusinessIdAndUsage(courseId, FileUsage.COURSE_MATERIAL);
+        if (!sectionIds.isEmpty()) {
+            fileMetadataRepository.deleteBySectionIdIn(sectionIds);
+        }
+
+        courseRepository.delete(course);
     }
 
     // ==================== 课程详情 ====================
@@ -274,6 +304,9 @@ public class CourseService {
         }
         if (request.getDescription() != null) {
             course.setDescription(request.getDescription());
+        }
+        if (request.getCoverImage() != null) {
+            course.setCoverImage(request.getCoverImage());
         }
         if (request.getStatus() != null) {
             course.setStatus(request.getStatus());

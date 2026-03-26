@@ -5,6 +5,7 @@
 # 默认启动全部
 
 set -e
+PARTIAL_FAILURE=0
 
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -116,13 +117,27 @@ start_java() {
     print_info "启动 Spring Boot 应用..."
     nohup ./mvnw spring-boot:run > /tmp/java_backend.log 2>&1 &
     JAVA_PID=$!
-    disown $JAVA_PID
-    
-    print_success "Java 后端已启动 (PID: $JAVA_PID)"
-    print_info "日志: tail -f /tmp/java_backend.log"
-    print_info "访问地址: http://localhost:8080"
-    
-    return 0
+    disown "$JAVA_PID"
+
+    print_info "等待 Java 后端启动..."
+    for i in $(seq 1 25); do
+        sleep 1
+        if lsof -ti:8080 > /dev/null 2>&1; then
+            print_success "Java 后端已启动 (PID: $JAVA_PID)"
+            print_info "日志: tail -f /tmp/java_backend.log"
+            print_info "访问地址: http://localhost:8080"
+            return 0
+        fi
+        if ! kill -0 "$JAVA_PID" 2>/dev/null; then
+            break
+        fi
+    done
+
+    print_error "Java 后端启动失败，请检查日志: /tmp/java_backend.log"
+    if [ -f /tmp/java_backend.log ]; then
+        tail -n 40 /tmp/java_backend.log
+    fi
+    return 1
 }
 
 # 启动 Python AI 服务
@@ -225,7 +240,7 @@ start_python() {
 start_frontend() {
     print_info "启动 Flutter 前端..."
     
-    FRONTEND_DIR="$SCRIPT_DIR/frontend/src/my_first_app"
+    FRONTEND_DIR="$SCRIPT_DIR/frontend/src/InsightPath"
     
     if [ ! -d "$FRONTEND_DIR" ]; then
         print_error "前端项目目录不存在: $FRONTEND_DIR"
@@ -271,18 +286,25 @@ start_frontend() {
 # 启动后端
 start_backend() {
     print_info "启动后端服务..."
-    
-    start_java
-    JAVA_RESULT=$?
-    
-    start_python
-    PYTHON_RESULT=$?
-    
+
+    if start_java; then
+        JAVA_RESULT=0
+    else
+        JAVA_RESULT=1
+    fi
+
+    if start_python; then
+        PYTHON_RESULT=0
+    else
+        PYTHON_RESULT=1
+    fi
+
     if [ $JAVA_RESULT -eq 0 ] && [ $PYTHON_RESULT -eq 0 ]; then
         print_success "后端服务已启动"
         return 0
     else
         print_error "后端启动过程中出现错误"
+        PARTIAL_FAILURE=1
         return 1
     fi
 }
@@ -290,23 +312,35 @@ start_backend() {
 # 启动全部
 start_all() {
     print_info "启动全部服务..."
-    
-    start_backend
-    BACKEND_RESULT=$?
-    
+
+    if start_backend; then
+        BACKEND_RESULT=0
+    else
+        BACKEND_RESULT=1
+    fi
+
     # 等待后端启动完成
     sleep 3
-    
-    start_frontend
-    FRONTEND_RESULT=$?
-    
+
+    if start_frontend; then
+        FRONTEND_RESULT=0
+    else
+        FRONTEND_RESULT=1
+    fi
+
     if [ $BACKEND_RESULT -eq 0 ] && [ $FRONTEND_RESULT -eq 0 ]; then
         print_success "所有服务已启动"
         return 0
-    else
-        print_error "启动过程中出现错误"
-        return 1
     fi
+
+    if [ $FRONTEND_RESULT -eq 0 ]; then
+        print_warning "前端已启动，但后端未完全启动。应用可进入，接口调用会失败。"
+        PARTIAL_FAILURE=1
+        return 0
+    fi
+
+    print_error "启动过程中出现错误"
+    return 1
 }
 
 # 主函数
@@ -354,7 +388,12 @@ main() {
     
     echo ""
     if [ $RESULT -eq 0 ]; then
-        print_success "启动完成！"
+        if [ $PARTIAL_FAILURE -eq 1 ]; then
+            print_warning "启动完成（部分服务失败）"
+            print_warning "请检查后端日志并修复后重试"
+        else
+            print_success "启动完成！"
+        fi
         print_info "日志查看:"
         print_info "  Java 后端: tail -f /tmp/java_backend.log"
         print_info "  Python AI: tail -f /tmp/python_ai.log"

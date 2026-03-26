@@ -9,11 +9,13 @@ import com.example.demo.course.entity.CourseFile;
 import com.example.demo.course.entity.CourseSection;
 import com.example.demo.course.service.AiChatService;
 import com.example.demo.course.service.CourseService;
+import com.example.demo.course.service.CourseSyllabusService;
 import com.example.demo.course.service.SectionService;
 import com.example.demo.dto.ApiResponse;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -27,15 +29,18 @@ public class CourseController {
     private final CourseService courseService;
     private final SectionService sectionService;
     private final AiChatService aiChatService;
+    private final CourseSyllabusService courseSyllabusService;
     private final UserRepository userRepository;
 
     public CourseController(CourseService courseService,
                             SectionService sectionService,
                             AiChatService aiChatService,
+                            CourseSyllabusService courseSyllabusService,
                             UserRepository userRepository) {
         this.courseService = courseService;
         this.sectionService = sectionService;
         this.aiChatService = aiChatService;
+        this.courseSyllabusService = courseSyllabusService;
         this.userRepository = userRepository;
     }
 
@@ -60,7 +65,7 @@ public class CourseController {
 
     /** 创建课程 (教师端) */
     @PostMapping
-    public ApiResponse<Map<String, Object>> createCourse(@RequestBody CreateCourseRequest body,
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createCourse(@RequestBody CreateCourseRequest body,
                                                           HttpServletRequest request) {
         User user = getCurrentUser(request);
         Course created = courseService.createCourse(body, user);
@@ -69,7 +74,8 @@ public class CourseController {
                 "title", created.getTitle(),
                 "status", created.getStatus().name()
         );
-        return new ApiResponse<>(201, "创建成功", data);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", data));
     }
 
     /** 获取课程详情 (实时状态校验) */
@@ -89,6 +95,15 @@ public class CourseController {
         User user = getCurrentUser(request);
         courseService.updateCourseSettings(courseId, body, user);
         return ApiResponse.success("设置更新成功", null);
+    }
+
+    /** 删除课程 (教师端) */
+    @DeleteMapping("/{courseId}")
+    public ApiResponse<Void> deleteCourse(@PathVariable Long courseId,
+                                          HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        courseService.deleteCourse(courseId, user);
+        return ApiResponse.success("删除成功", null);
     }
 
     /** 加入/申请课程 */
@@ -124,12 +139,13 @@ public class CourseController {
 
     /** 创建栏目 (教师端) */
     @PostMapping("/{courseId}/sections")
-    public ApiResponse<SectionResponse> createSection(@PathVariable Long courseId,
+    public ResponseEntity<ApiResponse<SectionResponse>> createSection(@PathVariable Long courseId,
                                                        @RequestBody CreateSectionRequest body,
                                                        HttpServletRequest request) {
         User user = getCurrentUser(request);
         SectionResponse section = sectionService.createSection(courseId, body, user);
-        return new ApiResponse<>(201, "创建成功", section);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", section));
     }
 
     /** 删除栏目 (教师端) */
@@ -176,12 +192,13 @@ public class CourseController {
 
     /** 创建文件夹 */
     @PostMapping("/{courseId}/sections/{sectionId}/folders")
-    public ApiResponse<CourseFile> createFolder(@PathVariable Long courseId,
+    public ResponseEntity<ApiResponse<CourseFile>> createFolder(@PathVariable Long courseId,
                                                  @PathVariable Long sectionId,
                                                  @RequestParam(name = "parent_id", required = false) Long parentId,
                                                  @RequestParam String name) {
         CourseFile folder = sectionService.createFolder(sectionId, parentId, name);
-        return new ApiResponse<>(201, "创建成功", folder);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", folder));
     }
 
     /** 删除文件或文件夹 */
@@ -201,6 +218,52 @@ public class CourseController {
                                          @RequestBody RenameItemRequest body) {
         sectionService.renameItem(itemId, body.getName());
         return ApiResponse.success("重命名成功", null);
+    }
+
+    // ==================== 课程大纲（可编辑） ====================
+
+    /** 获取课程大纲树 */
+    @GetMapping("/{courseId}/syllabus")
+    public ApiResponse<List<SyllabusNodeResponse>> getSyllabus(@PathVariable Long courseId,
+                                                               HttpServletRequest request) {
+        getCurrentUser(request);
+        List<SyllabusNodeResponse> data = courseSyllabusService.getSyllabusTree(courseId);
+        return ApiResponse.success("获取成功", data);
+    }
+
+    /** 创建章节 */
+    @PostMapping("/{courseId}/syllabus/chapters")
+    public ResponseEntity<ApiResponse<SyllabusNodeResponse>> createChapter(@PathVariable Long courseId,
+                                                           @RequestBody CreateSyllabusChapterRequest body,
+                                                           HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        SyllabusNodeResponse created = courseSyllabusService.createChapter(courseId, body, user);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", created));
+    }
+
+    /** 在章节下创建知识点 */
+    @PostMapping("/{courseId}/syllabus/chapters/{chapterId}/knowledge")
+    public ResponseEntity<ApiResponse<SyllabusNodeResponse>> createKnowledge(@PathVariable Long courseId,
+                                                             @PathVariable Long chapterId,
+                                                             @RequestBody CreateSyllabusKnowledgeRequest body,
+                                                             HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        SyllabusNodeResponse created = courseSyllabusService.createKnowledge(courseId, chapterId, body, user);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", created));
+    }
+
+    /** 在章节下创建习题 */
+    @PostMapping("/{courseId}/syllabus/chapters/{chapterId}/quiz")
+    public ResponseEntity<ApiResponse<SyllabusNodeResponse>> createQuiz(@PathVariable Long courseId,
+                                                        @PathVariable Long chapterId,
+                                                        @RequestBody CreateSyllabusQuizRequest body,
+                                                        HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        SyllabusNodeResponse created = courseSyllabusService.createQuiz(courseId, chapterId, body, user);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", created));
     }
 
     // ==================== 学生管理 ====================

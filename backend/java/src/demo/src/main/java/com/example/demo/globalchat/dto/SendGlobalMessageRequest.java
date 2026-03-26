@@ -10,5 +10,11 @@ public class SendGlobalMessageRequest {
     private Long sessionId;
 
     private String content;
+
+    @JsonProperty("enable_web_search")
+    private Boolean enableWebSearch;
+
+    @JsonProperty("file_context")
+    private String fileContext;
 }
 

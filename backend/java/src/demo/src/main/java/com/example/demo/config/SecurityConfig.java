@@ -28,6 +28,7 @@ public class SecurityConfig {
                 "/api/v1/auth/login/sms",
                 "/api/v1/auth/public-key",
                 "/api/v1/common/file/access",
+                "/api/v1/common/static",
                 "/api/v1/common/schools",
                 "/api/v1/courses", // 允许未登录查看课程列表
                 "/health"          // 健康检查接口

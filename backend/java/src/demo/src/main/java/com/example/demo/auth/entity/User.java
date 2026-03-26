@@ -38,6 +38,12 @@ public class User {
 	@Column(name = "avatar_url")
 	private String avatarUrl;
 
+	@Column(name = "bg_url")
+	private String bgUrl;
+
+	@Column(name = "bio", length = 1000)
+	private String bio;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 16)
 	private Role role;
@@ -99,6 +105,22 @@ public class User {
 
 	public void setAvatarUrl(String avatarUrl) {
 		this.avatarUrl = avatarUrl;
+	}
+
+	public String getBgUrl() {
+		return bgUrl;
+	}
+
+	public void setBgUrl(String bgUrl) {
+		this.bgUrl = bgUrl;
+	}
+
+	public String getBio() {
+		return bio;
+	}
+
+	public void setBio(String bio) {
+		this.bio = bio;
 	}
 
 	public Role getRole() {

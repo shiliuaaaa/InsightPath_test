@@ -14,4 +14,6 @@ public interface CourseMemberRepository extends JpaRepository<CourseMember, Long
     List<CourseMember> findByUserId(Long userId);
     
     List<CourseMember> findByCourseIdAndStatus(Long courseId, CourseMember.MemberStatus status);
+
+    void deleteByCourseId(Long courseId);
 }

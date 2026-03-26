@@ -100,10 +100,8 @@ public class SectionService {
                 contentRepository.save(content);
             }
             case AI -> {
-                SectionAiConfig config = new SectionAiConfig();
-                config.setSectionId(saved.getId());
-                config.setSystemPrompt("你是一个友好的AI助教。");
-                aiConfigRepository.save(config);
+                // 预设知径模式下，AI 配置按“页码 + DSL 剧本”动态写入 section_ai_configs
+                // 这里不再写入默认 1:1 配置记录。
             }
             default -> { /* STORAGE 不需要初始化 */ }
         }
@@ -274,25 +272,18 @@ public class SectionService {
         CourseSection section = sectionRepository.findById(sectionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "栏目不存在"));
 
-        SectionAiConfig config = aiConfigRepository.findBySectionId(sectionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI配置不存在"));
-
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "课程不存在"));
+
+        SectionAiConfig latestPreset = aiConfigRepository.findFirstBySectionIdOrderByUpdatedAtDesc(sectionId).orElse(null);
 
         Map<String, Object> result = new HashMap<>();
         result.put("course_id", courseId);
         result.put("ai_name", section.getTitle());
-        result.put("ai_avatar", null); // 当前版本暂无自定义头像，预留字段
-        result.put("welcome_message", config.getWelcomeMessage());
-        result.put("updated_at", config.getUpdatedAt());
-
-        // 仅教师可见 system_prompt
-        if (course.getTeacherId().equals(user.getId())) {
-            result.put("system_prompt", config.getSystemPrompt());
-        } else {
-            result.put("system_prompt", null);
-        }
+        result.put("ai_avatar", null);
+        result.put("welcome_message", "你好，我是你的AI助教。");
+        result.put("updated_at", latestPreset != null ? latestPreset.getUpdatedAt() : LocalDateTime.now());
+        result.put("system_prompt", course.getTeacherId().equals(user.getId()) ? "" : null);
         return result;
     }
 
@@ -302,13 +293,8 @@ public class SectionService {
         if (!course.getTeacherId().equals(teacher.getId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权操作此课程");
         }
-
-        SectionAiConfig config = aiConfigRepository.findBySectionId(sectionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI配置不存在"));
-        config.setWelcomeMessage(request.getWelcomeMessage());
-        config.setSystemPrompt(request.getSystemPrompt());
-        config.setUpdatedAt(LocalDateTime.now());
-        aiConfigRepository.save(config);
+        // 预设知径模式下，AI 页面配置不再落库到 section_ai_configs 固定字段；
+        // 兼容保留该接口，避免前端旧版本调用报错。
     }
 
     // ==================== AI 对话 ====================

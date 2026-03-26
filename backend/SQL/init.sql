@@ -9,6 +9,13 @@ CREATE TABLE IF NOT EXISTS schools (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 默认学校（保证 courses.school_id=1 可用）
+INSERT INTO schools (id, name, region_code)
+VALUES (1, '示例大学', '000000')
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('schools_id_seq', GREATEST((SELECT COALESCE(MAX(id), 1) FROM schools), 1), true);
+
 -- 2. 用户表 (Users) - 核心用户
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
@@ -17,6 +24,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(100) NOT NULL,
     nickname VARCHAR(32) NOT NULL,
     avatar_url VARCHAR(255),
+    bg_url VARCHAR(255),
+    bio TEXT,
     role VARCHAR(16) NOT NULL CHECK (role IN ('STUDENT', 'TEACHER')),
     school_id BIGINT REFERENCES schools(id), -- 学生选填，教师认证后更新
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -56,7 +65,7 @@ CREATE TABLE IF NOT EXISTS courses (
 -- 5. 课程成员表 (CourseMembers) - 记录成功加入的学生
 CREATE TABLE IF NOT EXISTS course_members (
     id BIGSERIAL PRIMARY KEY,
-    course_id BIGINT NOT NULL REFERENCES courses(id),
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     user_id BIGINT NOT NULL REFERENCES users(id),
     -- status: PENDING(申请中), JOINED(已加入)
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'JOINED')),
@@ -97,8 +106,11 @@ CREATE TABLE IF NOT EXISTS course_files (
     file_url VARCHAR(255), -- 仅 FILE 类型有效
     file_size BIGINT,
     file_ext VARCHAR(20),
+    pdf_url VARCHAR(512), -- 预览 PDF 链接（与实体字段对齐）
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE course_files ADD COLUMN IF NOT EXISTS pdf_url VARCHAR(512);
 
 -- 8.1 课程文件索引 (加速目录树查询)
 CREATE INDEX IF NOT EXISTS idx_course_files_section_id ON course_files(section_id);
@@ -124,15 +136,21 @@ CREATE INDEX IF NOT EXISTS idx_file_metadata_usage ON file_metadata(usage);
 CREATE INDEX IF NOT EXISTS idx_file_metadata_business_id ON file_metadata(business_id);
 CREATE INDEX IF NOT EXISTS idx_file_metadata_section_id ON file_metadata(section_id);
 
--- 9. AI配置表 (SectionAIConfigs) - 1:1 扩展 (type=AI)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bg_url VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
+
+-- 9. AI预设锚点表 (SectionAIConfigs) - 1:N 扩展 (type=AI)
 CREATE TABLE IF NOT EXISTS section_ai_configs (
     id BIGSERIAL PRIMARY KEY,
-    section_id BIGINT NOT NULL UNIQUE REFERENCES course_sections(id) ON DELETE CASCADE,
-    welcome_message VARCHAR(255) NOT NULL DEFAULT '你好，我是你的AI助教。',
-    system_prompt TEXT NOT NULL, -- 隐藏的 Prompt
-    model_name VARCHAR(50) DEFAULT 'gpt-4o',
+    section_id BIGINT NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,
+    page_number INTEGER NOT NULL,
+    prompt TEXT NOT NULL,
+    generated_dsl TEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_section_ai_configs_section_id ON section_ai_configs(section_id);
+CREATE INDEX IF NOT EXISTS idx_section_ai_configs_page_number ON section_ai_configs(page_number);
 
 
 -- 10. 全局 AI 会话表 (GlobalChatSessions)
@@ -169,6 +187,31 @@ CREATE TABLE IF NOT EXISTS ai_chat_messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 13. 可编辑课程大纲节点表（章节 / 知识点 / 习题）
+CREATE TABLE IF NOT EXISTS course_syllabus_nodes (
+    id BIGSERIAL PRIMARY KEY,
+    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    parent_id BIGINT REFERENCES course_syllabus_nodes(id) ON DELETE CASCADE,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('CHAPTER', 'KNOWLEDGE', 'QUIZ_CHOICE', 'QUIZ_ESSAY')),
+    title VARCHAR(255) NOT NULL,
+    order_index INTEGER NOT NULL DEFAULT 0,
+    resource_file_id BIGINT REFERENCES course_files(id) ON DELETE SET NULL,
+    question_text TEXT,
+    options_json TEXT,
+    answer_text TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_syllabus_nodes_course_id ON course_syllabus_nodes(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_syllabus_nodes_parent_id ON course_syllabus_nodes(parent_id);
+
+-- 兼容已存在数据库：确保 course_members.course_id 支持课程删除级联
+ALTER TABLE course_members DROP CONSTRAINT IF EXISTS course_members_course_id_fkey;
+ALTER TABLE course_members
+    ADD CONSTRAINT course_members_course_id_fkey
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+
 -- Create a sample table just to verify connectivity
 CREATE TABLE IF NOT EXISTS test_connection (
     id BIGSERIAL PRIMARY KEY,
@@ -176,43 +219,6 @@ CREATE TABLE IF NOT EXISTS test_connection (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
-
-WITH school AS (
-    INSERT INTO schools (name)
-    VALUES ('示例大学')
-    RETURNING id
-), teacher AS (
-    INSERT INTO users (username, phone, password_hash, nickname, role, school_id)
-    SELECT 'teacher1', '13800000000', 'hash', 'Teacher One', 'TEACHER', id
-    FROM school
-    RETURNING id
-), course AS (
-    INSERT INTO courses (teacher_id, school_id, title, description, status, visibility, permission)
-    SELECT t.id, s.id, '示例课程', '示例课程简介', 'IN_PROGRESS', 'PUBLIC', 'OPEN'
-    FROM teacher t, school s
-    RETURNING id
-), sec_display AS (
-    INSERT INTO course_sections (course_id, title, type, order_index)
-    SELECT c.id, '讲义', 'DISPLAY', 0 FROM course c
-    RETURNING id
-), sec_storage AS (
-    INSERT INTO course_sections (course_id, title, type, order_index)
-    SELECT c.id, '资料', 'STORAGE', 1 FROM course c
-    RETURNING id
-), sec_ai AS (
-    INSERT INTO course_sections (course_id, title, type, order_index)
-    SELECT c.id, 'AI 助教', 'AI', 2 FROM course c
-    RETURNING id
-), init_display AS (
-    INSERT INTO section_contents (section_id, content)
-    SELECT id, '# 欢迎来到示例课程
-
-请教师在此编辑课程讲义内容。' FROM sec_display
-)
-INSERT INTO section_ai_configs (section_id, welcome_message, system_prompt, model_name)
-SELECT id, '欢迎来到课程AI助教！', '你是一个友好且知识渊博的AI助教，帮助学生解答课程相关问题。', 'deepseek-chat'
-FROM sec_ai;
-
+-- 连通性示例数据（可重复执行）
 INSERT INTO test_connection (info) VALUES ('Database connected successfully!');
 

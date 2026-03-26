@@ -12,6 +12,7 @@ import com.example.demo.globalchat.service.GlobalChatService;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,7 +33,7 @@ public class GlobalChatController {
     }
 
     @PostMapping("/sessions")
-    public ApiResponse<GlobalChatSessionResponse> createSession(@RequestBody(required = false) CreateSessionRequest body,
+    public ResponseEntity<ApiResponse<GlobalChatSessionResponse>> createSession(@RequestBody(required = false) CreateSessionRequest body,
                                                                  HttpServletRequest request) {
         User user = getCurrentUser(request);
         String title = null;
@@ -42,7 +43,8 @@ public class GlobalChatController {
                     : body.getInitialTitle();
         }
         GlobalChatSessionResponse response = globalChatService.createSession(user.getId(), title);
-        return new ApiResponse<>(201, "创建成功", response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(201, "创建成功", response));
     }
 
     @GetMapping("/sessions")
@@ -67,7 +69,13 @@ public class GlobalChatController {
         if (body == null || body.getSessionId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId 不能为空");
         }
-        String reply = globalChatService.sendMessage(user.getId(), body.getSessionId(), body.getContent());
+        String reply = globalChatService.sendMessage(
+                user.getId(),
+                body.getSessionId(),
+                body.getContent(),
+                Boolean.TRUE.equals(body.getEnableWebSearch()),
+                body.getFileContext()
+        );
         Map<String, Object> data = Map.of(
                 "session_id", body.getSessionId(),
                 "reply", reply

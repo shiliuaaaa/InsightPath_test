@@ -1,5 +1,6 @@
 from typing import Any, Dict, List
 
+import httpx
 from pydantic import BaseModel
 
 
@@ -28,3 +29,9 @@ class ChatMessage(BaseModel):
 
 class GlobalChatRequest(BaseModel):
     messages: List[ChatMessage]
+
+
+class WebSearchResult(BaseModel):
+    title: str
+    snippet: str
+    link: str

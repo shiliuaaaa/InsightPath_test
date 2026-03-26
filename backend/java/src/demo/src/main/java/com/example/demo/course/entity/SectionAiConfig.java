@@ -13,17 +13,17 @@ public class SectionAiConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "section_id", nullable = false, unique = true)
+    @Column(name = "section_id", nullable = false)
     private Long sectionId;
 
-    @Column(name = "welcome_message", nullable = false)
-    private String welcomeMessage = "你好，我是你的AI助教。";
+    @Column(name = "page_number", nullable = false)
+    private Integer pageNumber;
 
-    @Column(name = "system_prompt", nullable = false, columnDefinition = "TEXT")
-    private String systemPrompt;
+    @Column(name = "prompt", nullable = false, columnDefinition = "TEXT")
+    private String prompt;
 
-    @Column(name = "model_name", length = 50)
-    private String modelName = "deepseek-chat";
+    @Column(name = "generated_dsl", nullable = false, columnDefinition = "TEXT")
+    private String generatedDsl;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();

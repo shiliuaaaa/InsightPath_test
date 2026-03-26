@@ -1,4 +1,6 @@
 import logging
+
+import httpx
 from fastapi import APIRouter, HTTPException
 
 from schemas.model import (
@@ -95,6 +97,63 @@ async def global_chat(request: GlobalChatRequest):
     except Exception as e:
         logger.exception("Error processing global chat request")
         raise HTTPException(status_code=500, detail="internal error") from e
+
+
+@router.get("/api/v1/web/search")
+async def web_search(query: str):
+    q = (query or "").strip()
+    if not q:
+        return {"code": 200, "message": "success", "data": {"results": []}}
+
+    url = "https://api.duckduckgo.com/"
+    params = {
+        "q": q,
+        "format": "json",
+        "no_redirect": "1",
+        "no_html": "1",
+        "skip_disambig": "1",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(url, params=params)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=503, detail="web search unavailable")
+
+        payload = resp.json()
+        related = payload.get("RelatedTopics", [])
+        results = []
+
+        def append_item(item):
+            if not isinstance(item, dict):
+                return
+            text = item.get("Text")
+            link = item.get("FirstURL")
+            if isinstance(text, str) and text.strip() and isinstance(link, str) and link.strip():
+                title = text.split(" - ", 1)[0].strip()
+                results.append({
+                    "title": title or text[:40],
+                    "snippet": text.strip(),
+                    "link": link.strip(),
+                })
+
+        for entry in related:
+            if isinstance(entry, dict) and isinstance(entry.get("Topics"), list):
+                for sub in entry["Topics"]:
+                    append_item(sub)
+                    if len(results) >= 5:
+                        break
+            else:
+                append_item(entry)
+            if len(results) >= 5:
+                break
+
+        return {"code": 200, "message": "success", "data": {"results": results}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("web search error")
+        raise HTTPException(status_code=503, detail="web search unavailable") from e
 
 
 @router.post("/api/v1/chat/animation", response_model=dict)
