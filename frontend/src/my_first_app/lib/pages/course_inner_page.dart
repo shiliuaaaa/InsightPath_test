@@ -521,11 +521,11 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                         color: isFolder ? const Color(0xFFF59E0B) : AppTheme.primary,
                         size: 22,
                       ),
-                    ),
+              ),
                     title: Text(item.name,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.titleColor),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(
+              subtitle: Text(
                       isFolder ? '${item.itemCount ?? 0} 项' : _formatSize(item.sizeBytes),
                       style: const TextStyle(fontSize: 12, color: AppTheme.hintColor),
                     ),
@@ -569,6 +569,8 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                                     pdfUrl: hasPdf ? item.pdfUrl : (ext == 'pdf' ? _sectionService.getFileAccessUrl(item.url!) : null),
                                     rawUrl: item.url,
                                     extension: item.extension,
+                                    pageContent: '资料名称：${item.name}\n类型：${item.extension ?? '未知'}\n请结合该资料内容进行动画讲解。',
+                                    courseId: widget.course.id,
                                   ),
                                 ),
                               );
@@ -748,6 +750,14 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                 icon: const Icon(Icons.delete_sweep, size: 18),
                 label: const Text('清空聊天'),
               ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  _tabController.animateTo(1);
+                },
+                icon: const Icon(Icons.folder_open_rounded, size: 18),
+                label: const Text('去资料区'),
+              ),
             ],
           ),
         ),
@@ -784,6 +794,10 @@ class _CourseInnerPageState extends State<CourseInnerPage>
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
             children: [
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.hintColor),
+              ),
               Expanded(
                 child: TextField(
                   controller: _aiInputController,
@@ -817,10 +831,14 @@ class _CourseInnerPageState extends State<CourseInnerPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: Text(widget.course.title),
         bottom: TabBar(
           controller: _tabController,
+          labelColor: AppTheme.primary,
+          unselectedLabelColor: AppTheme.hintColor,
+          indicatorColor: AppTheme.primary,
           tabs: const [
             Tab(text: '讲义'),
             Tab(text: '资料'),
@@ -828,13 +846,22 @@ class _CourseInnerPageState extends State<CourseInnerPage>
           ],
         ),
       ),
-      body: TabBarView(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), AppTheme.bg],
+          ),
+        ),
+        child: TabBarView(
         controller: _tabController,
         children: [
           _buildDisplayTab(),
           _buildStorageTab(),
           _buildAiTab(),
         ],
+        ),
       ),
     );
   }

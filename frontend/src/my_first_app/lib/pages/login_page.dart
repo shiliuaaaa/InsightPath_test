@@ -1,7 +1,10 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../utils/app_theme.dart';
+import 'register_page.dart';
 import 'student_home_page.dart';
 import 'teacher_home_page.dart';
 
@@ -21,7 +24,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   bool _passwordVisible = false;
   String? _statusMessage;
-  bool _isSuccess = false;
 
   @override
   void dispose() {
@@ -33,26 +35,39 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _handleLogin() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
+
     if (username.isEmpty || password.isEmpty) {
-      setState(() { _statusMessage = '用户名和密码不能为空'; _isSuccess = false; });
+      setState(() => _statusMessage = '用户名和密码不能为空');
       return;
     }
-    setState(() { _isLoading = true; _statusMessage = null; });
+
+    setState(() {
+      _isLoading = true;
+      _statusMessage = null;
+    });
+
     try {
-      final result = await _authService.login(username: username, password: password);
+      final ok = await _authService.login(username: username, password: password);
       if (!mounted) return;
-      if (result) {
+
+      if (!ok) {
+        setState(() => _statusMessage = '登录失败，请检查用户名和密码');
+        return;
+      }
+
         final user = await _authService.getCurrentUser();
         final role = user?['role'] as String? ?? 'STUDENT';
       if (!mounted) return;
-        Navigator.of(context).pushReplacement(MaterialPageRoute(
-          builder: (_) => role == 'TEACHER' ? const TeacherHomePage() : const StudentHomePage(),
-        ));
-      } else {
-        setState(() { _statusMessage = '登录失败，请检查用户名和密码'; _isSuccess = false; });
-      }
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+          builder: (_) => role == 'TEACHER'
+                    ? const TeacherHomePage()
+                    : const StudentHomePage(),
+          ),
+        );
     } catch (e) {
-      setState(() { _statusMessage = '登录出错：$e'; _isSuccess = false; });
+      setState(() => _statusMessage = '登录出错：$e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -64,209 +79,221 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppTheme.bg,
       body: Stack(
               children: [
-          // 顶部装饰背景
           Positioned(
-            top: 0, left: 0, right: 0,
+            top: 0,
+            left: 0,
+            right: 0,
             child: Container(
-              height: 280,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                  colors: [Color(0xFF1A4F95), Color(0xFF1E6BB8)],
-                ),
-                          ),
-                        ),
-          ),
-          // 装饰圆形
-          Positioned(
-            top: -60, right: -60,
-            child: Container(
-              width: 220, height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.06),
-              ),
+              height: 300,
+              decoration: const BoxDecoration(gradient: AppTheme.heroGradient),
             ),
           ),
           Positioned(
-            top: 40, right: 40,
-            child: Container(
-              width: 80, height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
+            top: -50,
+            right: -40,
+            child: _bubble(220, 0.07),
           ),
-          // 主内容
+          Positioned(
+            top: 40,
+            right: 36,
+            child: _bubble(90, 0.10),
+          ),
           SafeArea(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
               child: Column(
                 children: [
-                  const SizedBox(height: 48),
-                  // Logo 区
-                  Container(
-                    width: 72, height: 72,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
-                    ),
-                    child: const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 38),
+                  const SizedBox(height: 20),
+                  _brandHeader(),
+                  const SizedBox(height: 30),
+                  _glassCard(),
+                  const SizedBox(height: 20),
+                  Text(
+                    '专注 · 探索 · 成长',
+                        style: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 1.8,
+                      color: AppTheme.bodyColor.withValues(alpha: 0.65),
+                        ),
                       ),
-                  const SizedBox(height: 16),
-                  const Text('灵犀知径',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800,
-                      color: Colors.white, letterSpacing: 2),
-                      ),
-                  const SizedBox(height: 6),
-                  Text('AI 赋能 · 智慧学习路径导航',
-                    style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), letterSpacing: 0.5),
-                      ),
-                const SizedBox(height: 40),
-                  // 登录卡片
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, 8)),
+                    ],
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _brandHeader() {
+    return Column(
+                      children: [
+        Container(
+          width: 76,
+          height: 76,
+                              decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                                ),
+          child: const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 40),
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          '灵犀知径',
+                                style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'AI 赋能 · 智慧学习路径导航',
+          style: TextStyle(
+            fontSize: 13,
+            letterSpacing: .5,
+            color: Colors.white.withValues(alpha: 0.86),
+                                ),
+                              ),
+      ],
+    );
+  }
+
+  Widget _glassCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                            child: Container(
+          width: double.infinity,
+                              decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 26,
+                offset: const Offset(0, 10),
+                        ),
                       ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                          // 角色切换
-                          Container(
-                            height: 44,
-                              decoration: BoxDecoration(
-                              color: AppTheme.bg,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                _roleTab('STUDENT', '学生'),
-                                _roleTab('TEACHER', '讲师'),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Text('欢迎回来',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700,
-                              color: AppTheme.titleColor),
-                                ),
-                          const SizedBox(height: 4),
-                          const Text('请登录您的账号',
-                            style: TextStyle(fontSize: 13, color: AppTheme.bodyColor),
-                                ),
-                          const SizedBox(height: 24),
-                          // 用户名
+          child: Padding(
+            padding: const EdgeInsets.all(26),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppTheme.bg,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusS),
+                  ),
+                  child: Row(
+                    children: [
+                      _roleTab('STUDENT', '学生'),
+                      _roleTab('TEACHER', '讲师'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  '欢迎回来',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.titleColor),
+                ),
+                const SizedBox(height: 4),
+                const Text('请登录您的账号', style: TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
+                const SizedBox(height: 20),
                 TextField(
                   controller: _usernameController,
                   enabled: !_isLoading,
-                            decoration: const InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: '用户名',
-                              prefixIcon: Icon(Icons.person_outline_rounded, color: AppTheme.primary, size: 20),
+                    prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                       ),
                     ),
-                          const SizedBox(height: 14),
-                          // 密码
+                const SizedBox(height: 14),
                 TextField(
                   controller: _passwordController,
                   enabled: !_isLoading,
                   obscureText: !_passwordVisible,
                   decoration: InputDecoration(
                     hintText: '密码',
-                              prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primary, size: 20),
+                    prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                     suffixIcon: IconButton(
                       icon: Icon(
-                                  _passwordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                                  color: AppTheme.hintColor, size: 20,
+                        _passwordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                        size: 20,
+                        color: AppTheme.hintColor,
                       ),
-                                onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-                    ),
-                            ),
-                          ),
-                          // 状态提示
-                          if (_statusMessage != null) ...[  
-                const SizedBox(height: 12),
-                  Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                                color: (_isSuccess ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                                  color: (_isSuccess ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.3),
-                      ),
-                    ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _isSuccess ? Icons.check_circle_outline : Icons.error_outline,
-                                    size: 16,
-                                    color: _isSuccess ? AppTheme.successColor : AppTheme.errorColor,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(_statusMessage!,
-                      style: TextStyle(
-                        fontSize: 13,
-                                        color: _isSuccess ? AppTheme.successColor : AppTheme.errorColor,
-                      ),
+                      onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
                     ),
                   ),
-                                ],
-                              ),
-                            ),
-                          ],
-                const SizedBox(height: 24),
-                // 登录按钮
+                ),
+                if (_statusMessage != null) ...[
+                const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, size: 16, color: AppTheme.errorColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                    child: Text(
+                            _statusMessage!,
+                            style: const TextStyle(fontSize: 13, color: AppTheme.errorColor),
+                      ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 52,
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     child: _isLoading
-                                  ? const SizedBox(width: 20, height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                  : const Text('登 录'),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('登 录'),
                   ),
                 ),
-                          const SizedBox(height: 20),
-                          // 注册入口
-                          Row(
+                const SizedBox(height: 14),
+                Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                              const Text('还没有账号？', style: TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
+                    const Text('还没有账号？', style: TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
                       TextButton(
-                                onPressed: _isLoading ? null : _showRegisterDialog,
-                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
-                                child: const Text('立即注册',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                                    color: AppTheme.secondary)),
+                        onPressed: _isLoading
+                            ? null
+                          : () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const RegisterPage()),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  // 底部标语
-                  Text('专注 · 探索 · 成长',
-                    style: TextStyle(fontSize: 12, color: AppTheme.bodyColor.withValues(alpha: 0.6), letterSpacing: 2),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                          ),
+                        child: const Text(
+                          '立即注册',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primary),
                         ),
                       ),
                     ],
-                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -277,228 +304,42 @@ class _LoginPageState extends State<LoginPage> {
         onTap: () => setState(() => _userType = type),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
+          margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
             color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: selected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))] : [],
-          ),
-          child: Center(
-            child: Text(label,
-              style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600,
-                color: selected ? AppTheme.primary : AppTheme.hintColor,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showRegisterDialog() {
-    final regUsernameCtrl = TextEditingController();
-    final regPasswordCtrl = TextEditingController();
-    final regConfirmCtrl = TextEditingController();
-    final regPhoneCtrl = TextEditingController();
-    final regSmsCtrl = TextEditingController();
-    String regRole = _userType;
-    bool regPwdVisible = false;
-    bool regConfirmVisible = false;
-    bool sendingCode = false;
-    bool registering = false;
-    String? dialogMsg;
-    bool dialogSuccess = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.person_add_rounded, color: AppTheme.primary),
-                    const SizedBox(width: 10),
-                    const Text('创建账号',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.titleColor)),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: const Icon(Icons.close, size: 20, color: AppTheme.hintColor),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // 角色
-                Container(
-                  height: 40,
-                  decoration: BoxDecoration(color: AppTheme.bg, borderRadius: BorderRadius.circular(10)),
-                  child: Row(
-                    children: [
-                      _regRoleTab(setS, regRole, 'STUDENT', '学生', (v) => regRole = v),
-                      _regRoleTab(setS, regRole, 'TEACHER', '讲师', (v) => regRole = v),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _dialogField(regUsernameCtrl, '用户名（4-32位字母数字）', Icons.person_outline),
-                const SizedBox(height: 12),
-                _dialogPwdField(regPasswordCtrl, '密码（至少4位）', regPwdVisible,
-                  () => setS(() => regPwdVisible = !regPwdVisible)),
-                const SizedBox(height: 12),
-                _dialogPwdField(regConfirmCtrl, '确认密码', regConfirmVisible,
-                  () => setS(() => regConfirmVisible = !regConfirmVisible)),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: _dialogField(regPhoneCtrl, '手机号', Icons.phone_outlined, type: TextInputType.phone)),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: sendingCode ? null : () async {
-                          final phone = regPhoneCtrl.text.trim();
-                          if (phone.isEmpty) { setS(() => dialogMsg = '请先输入手机号'); return; }
-                          setS(() { sendingCode = true; dialogMsg = null; });
-                          final code = await _authService.sendSmsCode(phone: phone, type: 'REGISTER');
-                          setS(() {
-                            sendingCode = false;
-                            if (code == null) { dialogMsg = '发送失败，请重试'; dialogSuccess = false; }
-                            else if (code.isNotEmpty) { dialogMsg = '【演示】验证码：$code'; dialogSuccess = true; }
-                            else { dialogMsg = '验证码已发送'; dialogSuccess = true; }
-                          });
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.secondary,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                        child: sendingCode
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Text('发送验证码'),
-                  ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _dialogField(regSmsCtrl, '6位验证码', Icons.sms_outlined, type: TextInputType.number),
-                if (dialogMsg != null) ...[  
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: (dialogSuccess ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(dialogMsg!,
-                      style: TextStyle(fontSize: 12,
-                        color: dialogSuccess ? AppTheme.successColor : AppTheme.errorColor)),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: registering ? null : () async {
-                      if (regPasswordCtrl.text != regConfirmCtrl.text) {
-                        setS(() { dialogMsg = '两次密码不一致'; dialogSuccess = false; }); return;
-                      }
-                      if (regSmsCtrl.text.trim().length != 6) {
-                        setS(() { dialogMsg = '请输入6位验证码'; dialogSuccess = false; }); return;
-                      }
-                      setS(() { registering = true; dialogMsg = null; });
-                      final ok = await _authService.register(
-                        username: regUsernameCtrl.text.trim(),
-                        password: regPasswordCtrl.text,
-                        phone: regPhoneCtrl.text.trim(),
-                        smsCode: regSmsCtrl.text.trim(),
-                        role: regRole,
-                      );
-                      setS(() => registering = false);
-                      if (ok) {
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        setState(() { _statusMessage = '注册成功！请用新账号登录'; _isSuccess = true; });
-                      } else {
-                        setS(() { dialogMsg = '注册失败，用户名可能已存在或验证码错误'; dialogSuccess = false; });
-                      }
-                    },
-                    child: registering
-                        ? const SizedBox(width: 18, height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('注 册'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _regRoleTab(StateSetter setS, String current, String type, String label, Function(String) onChanged) {
-    final selected = current == type;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setS(() => onChanged(type)),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: selected
-                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6)]
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
                 : [],
-          ),
+                              ),
           child: Center(
-            child: Text(label,
-              style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600,
+                            child: Text(
+              label,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                 color: selected ? AppTheme.primary : AppTheme.hintColor,
-              ),
-            ),
-          ),
-        ),
-      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
     );
   }
 
-  Widget _dialogField(TextEditingController ctrl, String hint, IconData icon,
-      {TextInputType type = TextInputType.text}) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: type,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 18, color: AppTheme.primary),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      ),
-    );
-  }
-
-  Widget _dialogPwdField(TextEditingController ctrl, String hint, bool visible, VoidCallback toggle) {
-    return TextField(
-      controller: ctrl,
-      obscureText: !visible,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppTheme.primary),
-        suffixIcon: IconButton(
-          icon: Icon(visible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-              size: 18, color: AppTheme.hintColor),
-          onPressed: toggle,
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  Widget _bubble(double size, double opacity) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: opacity),
       ),
     );
   }

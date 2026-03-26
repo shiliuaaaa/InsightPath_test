@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import '../utils/app_theme.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -27,8 +30,6 @@ class _RegisterPageState extends State<RegisterPage> {
   String _role = 'TEACHER';
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
-
-  // mock 模式下后端返回的验证码（显示在界面上方便测试）
   String? _mockCode;
 
   @override
@@ -56,8 +57,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _sendCode() async {
     final phone = _phoneController.text.trim();
-    final phoneRegex = RegExp(r'^1[3-9]\d{9}$');
-    if (!phoneRegex.hasMatch(phone)) {
+    if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(phone)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请先输入正确的手机号')),
       );
@@ -82,7 +82,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     _startCountdown();
-    // mock 模式：显示验证码方便测试
     if (code.isNotEmpty) {
       setState(() => _mockCode = code);
     }
@@ -122,234 +121,191 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  void _goToLogin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isTeacher = _role == 'TEACHER';
-
     return Scaffold(
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(title: const Text('注册账号')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
+      body: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 220,
+              decoration: const BoxDecoration(gradient: AppTheme.heroGradient),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.93),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
-              child: ListView(
-                shrinkWrap: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── 用户名 ──
+                          const Text(
+                            '创建新账号',
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.titleColor),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text('填写信息，快速开始你的灵犀知径之旅', style: TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
+                          const SizedBox(height: 20),
                   TextFormField(
                     controller: _usernameController,
                     decoration: const InputDecoration(labelText: '用户名'),
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? '请输入用户名' : null,
+                            validator: (v) => (v == null || v.isEmpty) ? '请输入用户名' : null,
                   ),
                   const SizedBox(height: 12),
-
-                  // ── 密码 ──
                   TextFormField(
                     controller: _passwordController,
+                            obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: '密码',
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword
-                              ? Icons.visibility_off
-                            : Icons.visibility),
-                        onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
+                                icon: Icon(_obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    obscureText: _obscurePassword,
-                    validator: (v) =>
-                        (v == null || v.length < 4) ? '至少 4 位密码' : null,
+                            validator: (v) => (v == null || v.length < 4) ? '至少 4 位密码' : null,
                   ),
                   const SizedBox(height: 12),
-
-                  // ── 确认密码 ──
                   TextFormField(
                     controller: _confirmController,
+                            obscureText: _obscureConfirm,
                     decoration: InputDecoration(
                       labelText: '确认密码',
                       suffixIcon: IconButton(
-                        icon: Icon(_obscureConfirm
-                              ? Icons.visibility_off
-                            : Icons.visibility),
-                        onPressed: () => setState(
-                            () => _obscureConfirm = !_obscureConfirm),
+                                icon: Icon(_obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                       ),
                     ),
-                    obscureText: _obscureConfirm,
                     validator: (v) {
                       if (v == null || v.isEmpty) return '请再次输入密码';
                       if (v != _passwordController.text) return '两次密码不一致';
                       return null;
                     },
                   ),
-                  const SizedBox(height: 12),
-
-                  // ── 手机号 ──
-                  TextFormField(
-                    controller: _phoneController,
-                    decoration: const InputDecoration(
-                      labelText: '手机号',
-                      hintText: '请输入 11 位手机号',
-                    ),
-                    keyboardType: TextInputType.phone,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return '请输入手机号';
-                      if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(v)) {
-                        return '手机号格式不正确';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // ── 验证码 + 发送按钮 ──
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _phoneController,
+                            decoration: const InputDecoration(labelText: '手机号', hintText: '请输入 11 位手机号'),
+                            keyboardType: TextInputType.phone,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return '请输入手机号';
+                              if (!RegExp(r'^1[3-9]\d{9}$').hasMatch(v)) return '手机号格式不正确';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: TextFormField(
-                          controller: _smsCodeController,
-                          decoration: const InputDecoration(
-                            labelText: '验证码',
-                            hintText: '6 位数字',
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return '请输入验证码';
-                            if (!RegExp(r'^\d{6}$').hasMatch(v)) {
-                              return '验证码必须是 6 位数字';
-                            }
-                            return null;
+                                child: TextFormField(
+                                  controller: _smsCodeController,
+                                  decoration: const InputDecoration(labelText: '验证码', hintText: '6 位数字'),
+                                  keyboardType: TextInputType.number,
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) return '请输入验证码';
+                                    if (!RegExp(r'^\d{6}$').hasMatch(v)) return '验证码必须是 6 位数字';
+                                    return null;
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: SizedBox(
-                          width: 110,
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: (_sendingCode || _countdown > 0)
-                                ? null
-                                : _sendCode,
-                            child: _sendingCode
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
-                                : Text(_countdown > 0
-                                    ? '${_countdown}s 后重发'
-                                    : '发送验证码'),
-                          ),
+                              const SizedBox(width: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: SizedBox(
+                                  width: 122,
+                                  height: 48,
+                                  child: ElevatedButton(
+                                    onPressed: (_sendingCode || _countdown > 0) ? null : _sendCode,
+                                    child: _sendingCode
+                                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                        : Text(_countdown > 0 ? '${_countdown}s 后重发' : '发送验证码'),
+                                  ),
                         ),
                       ),
                     ],
                   ),
-
-                  // mock 模式下显示验证码提示
-                  if (_mockCode != null) ...[  
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        border: Border.all(color: Colors.green.shade300),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '演示模式验证码：$_mockCode',
-                        style: TextStyle(
-                            color: Colors.green.shade800,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-
-                  // ── 角色选择 ──
-                  const Text(
-                    '角色选择',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment<String>(
-                              value: 'TEACHER',
-                              label: Text('老师'),
-                              icon: Icon(Icons.school),
-                            ),
-                            ButtonSegment<String>(
-                              value: 'STUDENT',
-                              label: Text('学生'),
-                              icon: Icon(Icons.person),
+                          if (_mockCode != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successColor.withValues(alpha: 0.08),
+                                border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '演示模式验证码：$_mockCode',
+                                style: const TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.w600, fontSize: 12),
+                              ),
                             ),
                           ],
-                          selected: {_role},
-                          onSelectionChanged: (selection) {
-                            if (selection.isEmpty) return;
-                            setState(() => _role = selection.first);
-                          },
-                          showSelectedIcon: false,
-                        ),
-                      ),
-                    ],
-                  ),
+                          const SizedBox(height: 14),
+                          const Text('角色选择', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
-                  const Text(
-                    '所属学校：武汉大学（固定，当前项目不区分其他学校）',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                          SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment<String>(value: 'TEACHER', label: Text('老师'), icon: Icon(Icons.school_rounded)),
+                              ButtonSegment<String>(value: 'STUDENT', label: Text('学生'), icon: Icon(Icons.person_rounded)),
+                            ],
+                            selected: {_role},
+                            onSelectionChanged: (selection) {
+                              if (selection.isNotEmpty) {
+                                setState(() => _role = selection.first);
+                              }
+                            },
+                            showSelectedIcon: false,
                   ),
-                  const SizedBox(height: 24),
-
-                  // ── 注册按钮 ──
+                          const SizedBox(height: 22),
                   SizedBox(
                     width: double.infinity,
+                            height: 52,
                     child: ElevatedButton(
                       onPressed: _registering ? null : _handleRegister,
                       child: _registering
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('注册'),
+                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Text('注 册'),
                     ),
                   ),
                   TextButton(
-                    onPressed: _goToLogin,
+                            onPressed: () => Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(builder: (_) => const LoginPage()),
+                            ),
                     child: const Text('已有账号？去登录'),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isTeacher
-                        ? '提示：老师注册后登录将进入教师端首页；学生注册后登录会进入学生端首页。'
-                        : '提示：学生账号适合体验选课、加入课程等功能。',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ],
+                      ),
                     ),
-                ],
+                  ),
+                    ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

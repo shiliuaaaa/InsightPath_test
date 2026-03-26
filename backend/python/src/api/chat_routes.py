@@ -1,8 +1,19 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
-from schemas.model import AnimationGenerateRequest, AnimationGenerateResponse, ChatRequest
-from client.deepseek_client import chat_with_deepseek_from_db, generate_animation_script
+from schemas.model import (
+    AnimationGenerateRequest,
+    AnimationGenerateResponse,
+    ChatRequest,
+    GlobalChatRequest,
+    SocraticChatRequest,
+)
+from client.deepseek_client import (
+    ask_socratic_tutor,
+    chat_with_deepseek_from_db,
+    chat_with_global_tutor,
+    generate_animation_script,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,6 +49,51 @@ def chat(request: ChatRequest):
         raise
     except Exception as e:
         logger.exception("Error processing chat request")
+        raise HTTPException(status_code=500, detail="internal error") from e
+
+
+@router.post("/api/v1/chat/socratic")
+def socratic_chat(request: SocraticChatRequest):
+    logger.info("Received socratic request")
+    try:
+        answer = ask_socratic_tutor(request.question)
+        return {
+            "code": 200,
+            "message": "success",
+            "data": {
+                "reply": answer,
+                "model_version": "deepseek-chat",
+            },
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error processing socratic request")
+        raise HTTPException(status_code=500, detail="internal error") from e
+
+
+@router.post("/api/v1/chat/global")
+async def global_chat(request: GlobalChatRequest):
+    logger.info("Received global chat request, messages=%s", len(request.messages))
+    try:
+        message_dicts = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        reply_text = await chat_with_global_tutor(message_dicts)
+        return {
+            "code": 200,
+            "message": "success",
+            "data": {
+                "reply": reply_text,
+            },
+        }
+    except RuntimeError as e:
+        logger.exception("Global chat runtime error")
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error processing global chat request")
         raise HTTPException(status_code=500, detail="internal error") from e
 
 

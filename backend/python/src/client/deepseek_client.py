@@ -91,6 +91,66 @@ def ask_deepseek(
     return response.choices[0].message.content
 
 
+_SOCRATIC_SYSTEM_PROMPT = (
+    "你现在是“灵犀知径”平台的启发式 AI 助教。学生正在向你请教课后习题。\n"
+    "你的最高指令：**绝对、绝对不要直接告诉学生正确答案（不要直接说选A/B/C/D）！**\n"
+    "你的任务是：\n"
+    "1. 肯定学生的提问。\n"
+    "2. 用反问句或举例子的方式，引导他回忆课件里的知识点。\n"
+    "3. 每次回答保持简短（50字以内），像真实的老师对话一样，抛出一个小问题让他思考。"
+)
+
+GLOBAL_TUTOR_PROMPT = """你现在是“灵犀知径”教育平台的全局 AI 学管师与学术导师，你的名字叫“小犀”。
+你的职责是：解答学生关于计算机科学（如数据结构、算法等）的通用问题，提供学习路径规划，以及考研/就业的引导建议。
+请保持专业、温和、鼓励的语气。回答应当结构清晰，善用 Markdown 格式（如加粗、列表、代码块）。如果学生感到迷茫，请给予情感上的鼓励。"""
+
+
+def ask_socratic_tutor(question: str) -> str:
+    return ask_deepseek(
+        user_query=question,
+        system_prompt=_SOCRATIC_SYSTEM_PROMPT,
+        history=[],
+        temperature=0.8,
+    )
+
+
+async def chat_with_global_tutor(messages: List[dict]) -> str:
+    if not API_KEY:
+        raise RuntimeError("DEEPSEEK_API_KEY environment variable is not set.")
+
+    valid_roles = {"user", "assistant"}
+    final_messages = [{"role": "system", "content": GLOBAL_TUTOR_PROMPT}]
+
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content")
+        if role in valid_roles and isinstance(content, str) and content.strip():
+            final_messages.append({"role": role, "content": content})
+
+    if len(final_messages) == 1:
+        raise RuntimeError("messages is empty")
+
+    client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
+    try:
+        response = await client.chat.completions.create(
+            model="deepseek-chat",
+            messages=final_messages,
+            temperature=0.9,
+            stream=False,
+        )
+    except APIConnectionError as exc:
+        logger.exception("DeepSeek API connection failed in global tutor")
+        raise RuntimeError("连接大模型服务失败，请稍后重试") from exc
+    except Exception as exc:
+        logger.exception("DeepSeek API error in global tutor")
+        raise RuntimeError("全局助教服务暂不可用") from exc
+
+    reply = response.choices[0].message.content
+    if not reply:
+        raise RuntimeError("global tutor reply is empty")
+    return reply
+
+
 # ──────────────────────────────────────────────
 # DSL 动画剧本生成
 # ──────────────────────────────────────────────

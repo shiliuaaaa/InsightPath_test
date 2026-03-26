@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from pydantic import BaseModel
 
@@ -15,3 +15,16 @@ class AnimationGenerateRequest(BaseModel):
 
 class AnimationGenerateResponse(BaseModel):
     script: Dict[str, Any]
+
+
+class SocraticChatRequest(BaseModel):
+    question: str
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class GlobalChatRequest(BaseModel):
+    messages: List[ChatMessage]

@@ -135,7 +135,31 @@ CREATE TABLE IF NOT EXISTS section_ai_configs (
 );
 
 
--- 10. AI对话记录表 (AIChatMessages) - 1:N 记录 (type=AI)
+-- 10. 全局 AI 会话表 (GlobalChatSessions)
+CREATE TABLE IF NOT EXISTS ai_chat_session (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_chat_session_user_id ON ai_chat_session(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_chat_session_updated_at ON ai_chat_session(updated_at DESC);
+
+-- 11. 全局 AI 对话消息表 (GlobalAiChatMessages)
+CREATE TABLE IF NOT EXISTS global_ai_chat_message (
+    id BIGSERIAL PRIMARY KEY,
+    session_id BIGINT NOT NULL REFERENCES ai_chat_session(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_global_ai_chat_message_session_id ON global_ai_chat_message(session_id);
+CREATE INDEX IF NOT EXISTS idx_global_ai_chat_message_created_at ON global_ai_chat_message(created_at);
+
+-- 12. AI对话记录表 (AIChatMessages) - 1:N 记录 (type=AI)
 CREATE TABLE IF NOT EXISTS ai_chat_messages (
     id BIGSERIAL PRIMARY KEY,
     section_id BIGINT NOT NULL REFERENCES course_sections(id) ON DELETE CASCADE,

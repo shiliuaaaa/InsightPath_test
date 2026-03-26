@@ -2,29 +2,28 @@ import 'package:flutter/material.dart';
 import '../models/animation_dsl.dart';
 import '../services/ai_service.dart';
 import '../widgets/animation_canvas.dart';
-import '../utils/animation_script_library.dart';
+import '../utils/app_theme.dart';
 
 /// 动画播放器页面
 /// 支持：
 ///   1. 预设脚本切换（本地硬编码）
 ///   2. AI 生成脚本（输入自然语言 prompt，调用后端）
 class AnimationPlayerPage extends StatefulWidget {
-  const AnimationPlayerPage({super.key});
+  const AnimationPlayerPage({
+    super.key,
+    this.sourceTitle,
+    this.sourceContent,
+  });
+
+  final String? sourceTitle;
+  final String? sourceContent;
 
   @override
   State<AnimationPlayerPage> createState() => _AnimationPlayerPageState();
 }
 
 class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
-  // ── 预设脚本 ──
-  late AnimationScript currentScript;
-  int selectedScriptIndex = 0;
-
-  final List<(String, AnimationScript Function())> _presets = [
-    ('冒泡排序', AnimationScriptLibrary.getBubbleSortDemo),
-    ('二分查找', AnimationScriptLibrary.getBinarySearchDemo),
-    ('链表插入', AnimationScriptLibrary.getLinkedListDemo),
-  ];
+  AnimationScript? currentScript;
 
   // ── AI 生成 ──
   final _aiService = AiService();
@@ -35,22 +34,12 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
   @override
   void initState() {
     super.initState();
-    currentScript = _presets[0].$2();
   }
 
   @override
   void dispose() {
     _promptController.dispose();
     super.dispose();
-  }
-
-  // ── 切换预设脚本 ──
-  void _switchPreset(int index) {
-    setState(() {
-      selectedScriptIndex = index;
-      currentScript = _presets[index].$2();
-      _errorMessage = null;
-    });
   }
 
   // ── AI 生成脚本 ──
@@ -70,13 +59,25 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
       final script = await _aiService.generateAnimationScript(prompt);
       setState(() {
         currentScript = script;
-        selectedScriptIndex = -1; // 取消预设高亮
       });
     } catch (e) {
       setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       setState(() => _isGenerating = false);
     }
+  }
+
+  Future<void> _useCurrentPageForAnimation() async {
+    final title = (widget.sourceTitle ?? '').trim();
+    final content = (widget.sourceContent ?? '').trim();
+    final prompt = [
+      if (title.isNotEmpty) '页面标题：$title',
+      if (content.isNotEmpty) '页面内容：$content',
+      '请基于这页内容生成可视化动画讲解脚本，步骤要清晰。',
+    ].join('\n');
+
+    _promptController.text = prompt;
+    await _generateWithAI();
   }
 
   // ── 显示 AI 输入弹窗 ──
@@ -101,7 +102,7 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
           children: [
             Row(
               children: [
-                const Icon(Icons.auto_awesome, color: Colors.deepPurple),
+                const Icon(Icons.auto_awesome, color: AppTheme.primary),
                 const SizedBox(width: 8),
                 const Text(
                   'AI 生成动画剧本',
@@ -130,22 +131,9 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.deepPurple, width: 2),
+                  borderSide: const BorderSide(color: AppTheme.primary, width: 2),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            // 示例提示词快捷按钮
-            Wrap(
-              spacing: 8,
-              children: [
-                '演示选择排序',
-                '演示二叉树前序遍历',
-                '演示快速排序',
-              ].map((hint) => ActionChip(
-                    label: Text(hint, style: const TextStyle(fontSize: 12)),
-                    onPressed: () => _promptController.text = hint,
-                  )).toList(),
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -170,7 +158,7 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
                     : const Icon(Icons.send),
                 label: Text(_isGenerating ? '生成中...' : '生成动画'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: AppTheme.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -188,9 +176,11 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('算法动画播放器'),
+        leading: const BackButton(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('动画播放器'),
         centerTitle: true,
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
         actions: [
           // AI 生成按钮（右上角）
@@ -205,54 +195,25 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
       ),
       body: Column(
         children: [
-          // ── 预设脚本切换栏 ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            color: Colors.grey[100],
-            child: Row(
-              children: [
-                const Text('预设：', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(
-                        _presets.length,
-                        (index) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: ElevatedButton(
-                            onPressed: () => _switchPreset(index),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: selectedScriptIndex == index
-                                  ? Colors.deepPurple
-                                  : Colors.grey[300],
-                              foregroundColor: selectedScriptIndex == index
-                                  ? Colors.white
-                                  : Colors.black87,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: Text(
-                              _presets[index].$1,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+          if ((widget.sourceTitle ?? '').trim().isNotEmpty ||
+              (widget.sourceContent ?? '').trim().isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: Colors.grey[100],
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _isGenerating ? null : _useCurrentPageForAnimation,
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text('使用动画讲解此页面'),
                 ),
-              ],
+              ),
             ),
-          ),
 
-          // ── 加载中覆盖层 ──
           if (_isGenerating)
             Container(
-              color: Colors.deepPurple.withValues(alpha: 0.08),
+              color: AppTheme.primary.withValues(alpha: 0.08),
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -262,19 +223,18 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.deepPurple,
+                      color: AppTheme.primary,
                     ),
                   ),
                   SizedBox(width: 10),
                   Text(
                     'AI 正在生成动画剧本，请稍候...',
-                    style: TextStyle(color: Colors.deepPurple, fontSize: 13),
+                    style: TextStyle(color: AppTheme.primary, fontSize: 13),
                   ),
                 ],
               ),
             ),
 
-          // ── 错误提示条 ──
           if (_errorMessage != null)
             Container(
               width: double.infinity,
@@ -301,20 +261,62 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
               ),
             ),
 
-          // ── 动画画布（核心） ──
           Expanded(
-            child: AnimationCanvas(script: currentScript),
+            child: currentScript == null
+                ? _buildEmptyState()
+                : AnimationCanvas(script: currentScript!),
           ),
         ],
       ),
+    );
+  }
 
-      // ── 悬浮 AI 按钮（辅助入口） ──
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isGenerating ? null : _showAiInputDialog,
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.auto_awesome),
-        label: const Text('AI 生成'),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 480),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE8ECF2)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.auto_awesome_rounded, size: 44, color: AppTheme.primary),
+              const SizedBox(height: 12),
+              const Text(
+                '还没有动画内容',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.titleColor),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '点击“使用动画讲解此页面”或右上角 AI 生成',
+                style: TextStyle(fontSize: 13, color: AppTheme.hintColor),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: ((widget.sourceTitle ?? '').trim().isNotEmpty ||
+                        (widget.sourceContent ?? '').trim().isNotEmpty)
+                    ? _useCurrentPageForAnimation
+                    : _showAiInputDialog,
+                icon: const Icon(Icons.play_circle_outline_rounded),
+                label: const Text('开始生成动画'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

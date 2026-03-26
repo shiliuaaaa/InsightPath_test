@@ -234,16 +234,21 @@ class _AnimationCanvasState extends State<AnimationCanvas>
                 borderRadius: BorderRadius.circular(8),
                 color: Colors.white,
               ),
-              child: Stack(
-                children: [
-                  // 背景网格（可选）
-                  CustomPaint(
-                    painter: GridPainter(),
-                    size: Size.infinite,
-                  ),
-                  // 渲染所有实体
-                  ..._buildEntities(),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+                  return Stack(
+                    children: [
+                      // 背景网格（可选）
+                      CustomPaint(
+                        painter: GridPainter(),
+                        size: canvasSize,
+                      ),
+                      // 渲染所有实体（居中）
+                      ..._buildEntities(canvasSize),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -307,21 +312,57 @@ class _AnimationCanvasState extends State<AnimationCanvas>
   }
 
   /// 构建所有实体的 Widget 列表
-  List<Widget> _buildEntities() {
+  List<Widget> _buildEntities(Size canvasSize) {
     return currentCanvasState.values.map((entity) {
       if (entity.type == 'DataNode') {
-        return _buildDataNode(entity);
+        return _buildDataNode(entity, canvasSize);
       } else if (entity.type == 'Pointer') {
-        return _buildPointer(entity);
+        return _buildPointer(entity, canvasSize);
       }
       return const SizedBox.shrink();
     }).toList();
   }
 
+  Offset _computeCanvasOffset(Size canvasSize) {
+    if (currentCanvasState.isEmpty) {
+      return Offset(canvasSize.width / 2, canvasSize.height / 2);
+    }
+
+    final dataNodes = currentCanvasState.values
+        .where((e) => e.type == 'DataNode')
+        .toList();
+
+    if (dataNodes.isEmpty) {
+      return Offset(canvasSize.width / 2, canvasSize.height / 2);
+    }
+
+    final minX = dataNodes
+        .map((e) => e.index[0] * gridUnit)
+        .reduce((a, b) => a < b ? a : b);
+    final maxX = dataNodes
+        .map((e) => e.index[0] * gridUnit)
+        .reduce((a, b) => a > b ? a : b);
+    final minY = dataNodes
+        .map((e) => e.index[1] * gridUnit)
+        .reduce((a, b) => a < b ? a : b);
+    final maxY = dataNodes
+        .map((e) => e.index[1] * gridUnit)
+        .reduce((a, b) => a > b ? a : b);
+
+    final contentWidth = (maxX - minX) + nodeSize;
+    final contentHeight = (maxY - minY) + nodeSize;
+
+    return Offset(
+      (canvasSize.width - contentWidth) / 2 - minX,
+      (canvasSize.height - contentHeight) / 2 - minY,
+    );
+  }
+
   /// 构建 DataNode（数据方块）
-  Widget _buildDataNode(EntityState entity) {
-    final x = entity.index[0] * gridUnit;
-    final y = entity.index[1] * gridUnit;
+  Widget _buildDataNode(EntityState entity, Size canvasSize) {
+    final offset = _computeCanvasOffset(canvasSize);
+    final x = entity.index[0] * gridUnit + offset.dx;
+    final y = entity.index[1] * gridUnit + offset.dy;
 
     return AnimatedPositioned(
       left: x,
@@ -360,7 +401,8 @@ class _AnimationCanvasState extends State<AnimationCanvas>
   }
 
   /// 构建 Pointer（指针）
-  Widget _buildPointer(EntityState entity) {
+  Widget _buildPointer(EntityState entity, Size canvasSize) {
+    final offset = _computeCanvasOffset(canvasSize);
     // 获取指向的目标实体
     final targetEntity = entity.targetId != null
         ? currentCanvasState[entity.targetId]
@@ -370,8 +412,8 @@ class _AnimationCanvasState extends State<AnimationCanvas>
       return const SizedBox.shrink();
     }
 
-    final targetX = targetEntity.index[0] * gridUnit + nodeSize / 2;
-    final targetY = targetEntity.index[1] * gridUnit;
+    final targetX = targetEntity.index[0] * gridUnit + nodeSize / 2 + offset.dx;
+    final targetY = targetEntity.index[1] * gridUnit + offset.dy;
 
     return AnimatedPositioned(
       left: targetX - 12,

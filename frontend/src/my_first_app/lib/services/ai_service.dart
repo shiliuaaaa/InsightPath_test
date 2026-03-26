@@ -189,6 +189,179 @@ class AiService {
     return AnimationScript.fromJson(scriptJson);
   }
 
+  /// 启发式助教问答
+  Future<String?> askSocraticTutor(String question) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/chat/socratic');
+      final resp = await _client.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'question': question}),
+      );
+
+      if (resp.statusCode != 200) {
+        throw Exception('请求失败：${resp.statusCode}');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final payload = data['data'];
+      if (payload is String) return payload;
+      if (payload is Map<String, dynamic>) {
+        return payload['reply'] as String? ??
+            payload['answer'] as String? ??
+            payload['content'] as String? ??
+            payload['message'] as String?;
+      }
+      return data['message'] as String?;
+    } catch (e) {
+      if (kDebugMode) {
+        print('askSocraticTutor error: $e');
+      }
+      return null;
+    }
+  }
+
+  /// 创建全局聊天会话
+  Future<int?> createGlobalSession({String? title}) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/global-chat/sessions');
+      final resp = await _client.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({if (title != null && title.trim().isNotEmpty) 'title': title.trim()}),
+      );
+
+      if (resp.statusCode != 200 && resp.statusCode != 201) {
+        throw Exception('创建会话失败：${resp.statusCode}');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final payload = data['data'] as Map<String, dynamic>? ?? {};
+      final id = payload['id'] ?? payload['session_id'] ?? payload['sessionId'];
+      if (id is int) return id;
+      if (id is String) return int.tryParse(id);
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('createGlobalSession error: $e');
+      }
+      return null;
+    }
+  }
+
+  /// 获取全局聊天会话列表
+  Future<List<GlobalChatSession>> getGlobalSessions() async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/global-chat/sessions');
+      final resp = await _client.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (resp.statusCode != 200) {
+        throw Exception('获取会话失败：${resp.statusCode}');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final list = (data['data'] as List<dynamic>? ?? [])
+          .map((e) => GlobalChatSession.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return list;
+    } catch (e) {
+      if (kDebugMode) {
+        print('getGlobalSessions error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// 获取某个全局会话的消息列表
+  Future<List<GlobalChatMessage>> getGlobalMessages(String sessionId) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/global-chat/sessions/$sessionId/messages');
+      final resp = await _client.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (resp.statusCode != 200) {
+        throw Exception('获取消息失败：${resp.statusCode}');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final list = (data['data'] as List<dynamic>? ?? [])
+          .map((e) => GlobalChatMessage.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return list;
+    } catch (e) {
+      if (kDebugMode) {
+        print('getGlobalMessages error: $e');
+      }
+      return [];
+    }
+  }
+
+  /// 发送全局聊天消息，返回 AI 回复
+  Future<String?> sendGlobalMessage(String sessionId, String content) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/global-chat/message');
+      final resp = await _client.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'session_id': int.tryParse(sessionId) ?? sessionId,
+          'content': content,
+        }),
+      );
+
+      if (resp.statusCode != 200) {
+        throw Exception('发送消息失败：${resp.statusCode}');
+      }
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final payload = data['data'];
+      if (payload is Map<String, dynamic>) {
+        return payload['reply'] as String? ?? payload['content'] as String?;
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('sendGlobalMessage error: $e');
+      }
+      return null;
+    }
+  }
+
   /// 假实现（降级用）
   Future<AiMessage?> sendChatFake({
     required int sectionId,
@@ -212,4 +385,65 @@ class AiService {
       createdAt: DateTime.now(),
     );
   }
+}
+
+class GlobalChatSession {
+  final int id;
+  final String title;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  GlobalChatSession({
+    required this.id,
+    required this.title,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory GlobalChatSession.fromJson(Map<String, dynamic> json) {
+    final idValue = json['id'] ?? json['session_id'] ?? json['sessionId'] ?? 0;
+    return GlobalChatSession(
+      id: idValue is int ? idValue : int.tryParse('$idValue') ?? 0,
+      title: (json['title'] as String?)?.trim().isNotEmpty == true
+          ? (json['title'] as String)
+          : '新会话',
+      createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
+      updatedAt: _parseDateTime(json['updated_at'] ?? json['updatedAt']),
+    );
+  }
+}
+
+class GlobalChatMessage {
+  final int id;
+  final int sessionId;
+  final String role;
+  final String content;
+  final DateTime createdAt;
+
+  GlobalChatMessage({
+    required this.id,
+    required this.sessionId,
+    required this.role,
+    required this.content,
+    required this.createdAt,
+  });
+
+  factory GlobalChatMessage.fromJson(Map<String, dynamic> json) {
+    final idValue = json['id'] ?? 0;
+    final sidValue = json['session_id'] ?? json['sessionId'] ?? 0;
+    return GlobalChatMessage(
+      id: idValue is int ? idValue : int.tryParse('$idValue') ?? 0,
+      sessionId: sidValue is int ? sidValue : int.tryParse('$sidValue') ?? 0,
+      role: (json['role'] as String? ?? '').toLowerCase(),
+      content: json['content'] as String? ?? '',
+      createdAt: _parseDateTime(json['created_at'] ?? json['createdAt']),
+    );
+  }
+}
+
+DateTime _parseDateTime(dynamic raw) {
+  if (raw is String && raw.isNotEmpty) {
+    return DateTime.tryParse(raw) ?? DateTime.now();
+  }
+  return DateTime.now();
 }

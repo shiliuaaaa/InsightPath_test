@@ -1,16 +1,20 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
 import '../models/course.dart';
-import '../services/course_service.dart';
 import '../services/auth_service.dart';
+import '../services/course_service.dart';
 import '../utils/app_theme.dart';
 import 'course_detail_page.dart';
-import 'create_course_page.dart';
-import 'course_students_page.dart';
 import 'course_settings_page.dart';
+import 'course_students_page.dart';
+import 'create_course_page.dart';
 import 'login_page.dart';
 
 class TeacherHomePage extends StatefulWidget {
   const TeacherHomePage({super.key});
+
   @override
   State<TeacherHomePage> createState() => _TeacherHomePageState();
 }
@@ -18,6 +22,7 @@ class TeacherHomePage extends StatefulWidget {
 class _TeacherHomePageState extends State<TeacherHomePage> {
   final _courseService = CourseService();
   final _auth = AuthService();
+
   int _currentIndex = 0;
   bool _isLoading = false;
   String? _errorText;
@@ -42,11 +47,16 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
   }
 
   Future<void> _loadCourses() async {
-    setState(() { _isLoading = true; _errorText = null; });
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
     try {
       final list = await _courseService.fetchMyCourses();
+      if (!mounted) return;
       setState(() => _courses = list);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _errorText = '加载课程失败：$e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -56,96 +66,138 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
   Future<void> _logout() async {
     await _auth.logout();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
   }
 
-  void _goCreate() async {
+  Future<void> _goCreate() async {
     final created = await Navigator.push<Course?>(
-      context, MaterialPageRoute(builder: (_) => const CreateCoursePage()));
-    if (created != null) setState(() => _courses = [created, ..._courses]);
+      context,
+      MaterialPageRoute(builder: (_) => const CreateCoursePage()),
+    );
+    if (created != null && mounted) {
+      setState(() => _courses = [created, ..._courses]);
     }
+  }
 
-  void _showCourseActions(Course c, int index) async {
+  Future<void> _showCourseActions(Course c, int index) async {
                 final action = await showModalBottomSheet<String>(
                   context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      builder: (_) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusL)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.96),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTheme.radiusL)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-            Container(width: 36, height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(color: AppTheme.borderColor, borderRadius: BorderRadius.circular(2))),
-            Text(c.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.titleColor)),
-            const SizedBox(height: 16),
-            _sheetTile(Icons.open_in_new_rounded, '进入课程', AppTheme.primary, 'detail'),
-            _sheetTile(Icons.settings_outlined, '课程设置', AppTheme.bodyColor, 'settings'),
-            _sheetTile(Icons.group_outlined, '学生管理', AppTheme.bodyColor, 'students'),
-          ],
-        ),
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  decoration: BoxDecoration(
+                    color: AppTheme.borderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Text(
+                  c.title,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.titleColor),
+                          ),
+                const SizedBox(height: 14),
+                _sheetTile(Icons.open_in_new_rounded, '进入课程', AppTheme.primary, 'detail'),
+                _sheetTile(Icons.settings_outlined, '课程设置', AppTheme.bodyColor, 'settings'),
+                _sheetTile(Icons.group_outlined, '学生管理', AppTheme.bodyColor, 'students'),
+              ],
+            ),
                       ),
-                    );
+        ),
+      ),
+                );
+
     if (!mounted) return;
                 if (action == 'detail') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => CourseDetailPage(course: c)));
                 } else if (action == 'settings') {
                   final updated = await Navigator.push<Course?>(
-        context, MaterialPageRoute(builder: (_) => CourseSettingsPage(course: c)));
-      if (updated != null) setState(() => _courses[index] = updated);
+                    context,
+        MaterialPageRoute(builder: (_) => CourseSettingsPage(course: c)),
+                  );
+      if (updated != null && mounted) {
+        setState(() => _courses[index] = updated);
+                  }
                 } else if (action == 'students') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => CourseStudentsPage(course: c)));
     }
   }
 
   Widget _sheetTile(IconData icon, String label, Color color, String value) => ListTile(
-    leading: Container(
-      width: 36, height: 36,
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-      child: Icon(icon, color: color, size: 18),
-    ),
-    title: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
-    trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor, size: 18),
-    onTap: () => Navigator.pop(context, value),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  );
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        title: Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: color)),
+        trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor, size: 18),
+        onTap: () => Navigator.pop(context, value),
+      );
 
   Widget _buildCoursesTab() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
+
     if (_errorText != null) {
       return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.hintColor),
-          const SizedBox(height: 12),
-          Text(_errorText!, style: const TextStyle(color: AppTheme.bodyColor)),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: _loadCourses, child: const Text('重试')),
-        ]),
-            );
-    }
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.hintColor),
+            const SizedBox(height: 12),
+            Text(_errorText!, style: const TextStyle(color: AppTheme.bodyColor)),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _loadCourses, child: const Text('重试')),
+          ],
+                    ),
+                  );
+                }
+
     if (_courses.isEmpty) {
       return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 80, height: 80,
-          decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.08), shape: BoxShape.circle),
-          child: const Icon(Icons.add_box_outlined, size: 40, color: AppTheme.primary),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 82,
+              height: 82,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add_box_outlined, size: 40, color: AppTheme.primary),
+            ),
+            const SizedBox(height: 16),
+            const Text('还没有课程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.titleColor)),
+            const SizedBox(height: 8),
+            const Text('点击右下角创建第一门课程', style: TextStyle(color: AppTheme.bodyColor)),
+          ],
         ),
-        const SizedBox(height: 16),
-        const Text('还没有课程', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.titleColor)),
-        const SizedBox(height: 8),
-        const Text('点击右下角创建第一门课程', style: TextStyle(color: AppTheme.bodyColor)),
-      ]),
       );
     }
+
     return RefreshIndicator(
       onRefresh: _loadCourses,
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
         itemCount: _courses.length,
         itemBuilder: (_, i) => _TeacherCourseCard(
           course: _courses[i],
@@ -157,119 +209,133 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
 
   Widget _buildProfileTab() {
     final initial = _username.isNotEmpty ? _username[0].toUpperCase() : 'T';
+
     return ListView(
       padding: EdgeInsets.zero,
       children: [
         Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft, end: Alignment.bottomRight,
-              colors: [Color(0xFF1A4F95), Color(0xFF3AAFA9)],
-        ),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
+          decoration: const BoxDecoration(gradient: AppTheme.heroGradient),
+          padding: const EdgeInsets.fromLTRB(24, 56, 24, 34),
           child: Row(
             children: [
               CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
-                child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-        ),
+                radius: 32,
+                backgroundColor: Colors.white.withValues(alpha: 0.22),
+                child: Text(initial, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_username.isEmpty ? '讲师' : _username,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+                    Text(_username.isEmpty ? '讲师' : _username, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text('讲师', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500)),
-                    ),
+                    Text(_school, style: const TextStyle(fontSize: 12, color: Colors.white70)),
                   ],
                 ),
               ),
-              // 课程数统计
               Column(
                 children: [
                   Text('${_courses.length}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                   const Text('门课程', style: TextStyle(fontSize: 11, color: Colors.white70)),
                 ],
-              ),
+        ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _sectionTitle('账户信息'),
         _infoCard([
           _infoTile(Icons.person_outline_rounded, '用户名', _username.isEmpty ? '未设置' : _username),
+          _divider(),
           _infoTile(Icons.school_outlined, '学校', _school),
+          _divider(),
           _infoTile(Icons.badge_outlined, '身份', '讲师'),
         ]),
         const SizedBox(height: 8),
         _sectionTitle('功能'),
         _infoCard([
           _actionTile(Icons.verified_outlined, '教师认证', () {}),
+          _divider(),
           _actionTile(Icons.tune_outlined, '教学偏好', () {}),
         ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: OutlinedButton.icon(
             onPressed: _logout,
             icon: const Icon(Icons.logout_rounded, size: 18),
             label: const Text('退出登录'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.errorColor,
-              side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.5)),
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 40),
       ],
     );
   }
 
   Widget _sectionTitle(String t) => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-    child: Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.hintColor, letterSpacing: 0.5)),
-  );
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+        child: Text(
+          t,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.hintColor,
+            letterSpacing: 0.6,
+          ),
+        ),
+      );
 
   Widget _infoCard(List<Widget> children) => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-    decoration: BoxDecoration(
-      color: Colors.white, borderRadius: BorderRadius.circular(16),
-      border: const Border.fromBorderSide(BorderSide(color: Color(0xFFF0F0F5))),
-    ),
-    child: Column(children: children),
-  );
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          border: const Border.fromBorderSide(BorderSide(color: Color(0xFFEEEFF2))),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 16, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          child: Column(children: children),
+        ),
+      );
+
+  Widget _divider() => const Divider(height: 1, thickness: 1, indent: 56, color: Color(0xFFF4F5F7));
 
   Widget _infoTile(IconData icon, String label, String value) => ListTile(
-    leading: Icon(icon, color: AppTheme.primary, size: 20),
-    title: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
-    trailing: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.titleColor)),
-    dense: true,
-  );
+        leading: _leadingIcon(icon),
+        title: Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
+        trailing: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.titleColor)),
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      );
 
   Widget _actionTile(IconData icon, String label, VoidCallback onTap) => ListTile(
-    leading: Icon(icon, color: AppTheme.primary, size: 20),
-    title: Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.titleColor)),
-    trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.hintColor),
-    dense: true,
-    onTap: onTap,
-  );
+        leading: _leadingIcon(icon),
+        title: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.titleColor)),
+        trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.hintColor),
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        onTap: onTap,
+      );
+
+  Widget _leadingIcon(IconData icon) => Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppTheme.primary, size: 18),
+      );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
+      extendBody: true,
       appBar: AppBar(
         title: Text(_currentIndex == 0 ? '我的课程' : '我的'),
         actions: [
@@ -277,9 +343,18 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
             IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _loadCourses),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [_buildCoursesTab(), _buildProfileTab()],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), AppTheme.bg],
+          ),
+        ),
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [_buildCoursesTab(), _buildProfileTab()],
+        ),
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton.extended(
@@ -288,42 +363,57 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
               label: const Text('新建课程', style: TextStyle(fontWeight: FontWeight.w600)),
             )
           : null,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF0F0F5)))),
-        child: BottomNavigationBar(
+      bottomNavigationBar: _GlassNavBar(
         currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book_rounded), label: '课程'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: '我的'),
-          ],
+        onTap: (i) => setState(() => _currentIndex = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book_rounded),
+            label: '课程',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: '我的',
+          ),
+        ],
       ),
     );
   }
 }
 
 class _TeacherCourseCard extends StatelessWidget {
+  const _TeacherCourseCard({required this.course, required this.onTap});
+
   final Course course;
   final VoidCallback onTap;
-  const _TeacherCourseCard({required this.course, required this.onTap});
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'IN_PROGRESS': return '进行中';
-      case 'COMPLETED': return '已结课';
-      case 'PRE_RELEASE': return '未开课';
-      case 'HIDDEN': return '已隐藏';
-      default: return s;
+      case 'IN_PROGRESS':
+        return '进行中';
+      case 'COMPLETED':
+        return '已结课';
+      case 'PRE_RELEASE':
+        return '未开课';
+      case 'HIDDEN':
+        return '已隐藏';
+      default:
+        return s;
     }
   }
 
   Color _statusColor(String s) {
     switch (s) {
-      case 'IN_PROGRESS': return AppTheme.successColor;
-      case 'COMPLETED': return AppTheme.hintColor;
-      case 'HIDDEN': return AppTheme.errorColor;
-      default: return AppTheme.secondary;
+      case 'IN_PROGRESS':
+        return AppTheme.successColor;
+      case 'COMPLETED':
+        return AppTheme.hintColor;
+      case 'HIDDEN':
+        return AppTheme.errorColor;
+      default:
+        return AppTheme.secondary;
     }
   }
 
@@ -331,57 +421,73 @@ class _TeacherCourseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final initial = course.title.isNotEmpty ? course.title[0] : '?';
     final statusColor = _statusColor(course.status);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: const Border.fromBorderSide(BorderSide(color: Color(0xFFF0F0F5))),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        border: const Border.fromBorderSide(BorderSide(color: Color(0xFFEEEFF2))),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 16, offset: const Offset(0, 4)),
+        ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: Row(
             children: [
               Container(
-                width: 52, height: 52,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.secondary],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(13),
+                  gradient: AppTheme.brandGradient,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
                 ),
-                child: Center(child: Text(initial,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white))),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(course.title,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.titleColor),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 6),
+                    Text(
+                      course.title,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.titleColor),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Container(
-                          width: 6, height: 6,
+                          width: 7,
+                          height: 7,
                           decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                         ),
-                        const SizedBox(width: 5),
-                        Text(_statusLabel(course.status),
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: statusColor)),
+                        const SizedBox(width: 6),
+                        Text(
+                          _statusLabel(course.status),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
+                        ),
                         const SizedBox(width: 12),
-                        Icon(course.permission == 'OPEN' ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
-                          size: 13, color: AppTheme.hintColor),
+                        Icon(
+                          course.permission == 'OPEN' ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+                          size: 13,
+                          color: AppTheme.hintColor,
+                        ),
                         const SizedBox(width: 4),
-                        Text(course.permission == 'OPEN' ? '直接加入' : '需审批',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.hintColor)),
+                        Text(
+                          course.permission == 'OPEN' ? '直接加入' : '需审批',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.hintColor),
+                        ),
                       ],
                     ),
                   ],
@@ -389,6 +495,43 @@ class _TeacherCourseCard extends StatelessWidget {
               ),
               const Icon(Icons.more_vert_rounded, color: AppTheme.hintColor, size: 20),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassNavBar extends StatelessWidget {
+  const _GlassNavBar({
+    required this.currentIndex,
+    required this.onTap,
+    required this.destinations,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<NavigationDestination> destinations;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.glassWhite.withValues(alpha: 0.92),
+            border: const Border(top: BorderSide(color: Color(0xFFE8EAED), width: 0.6)),
+          ),
+          child: NavigationBar(
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTap,
+            destinations: destinations,
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            height: 56 + bottom,
           ),
         ),
       ),
