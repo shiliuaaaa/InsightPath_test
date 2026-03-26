@@ -41,8 +41,7 @@ class CoursewareViewerPage extends StatefulWidget {
   State<CoursewareViewerPage> createState() => _CoursewareViewerPageState();
 }
 
-class _CoursewareViewerPageState extends State<CoursewareViewerPage>
-    with SingleTickerProviderStateMixin {
+class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
   static const String _baseUrl = 'http://localhost:8080';
 
   final AuthService _auth = AuthService();
@@ -54,8 +53,6 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage>
   String _role = 'STUDENT';
   int _currentPageNumber = 1;
   List<SectionAiConfig> _presetConfigs = [];
-
-  late final AnimationController _glowController;
 
   static const _imageExts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'};
 
@@ -81,16 +78,11 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage>
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
     _initRoleAndPresets();
   }
 
   @override
   void dispose() {
-    _glowController.dispose();
     super.dispose();
   }
 
@@ -180,8 +172,102 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage>
     );
   }
 
-  Future<void> _showTeacherPresetSheet() async {
-    final promptController = TextEditingController();
+  void _playCurrentPreset() {
+    final preset = _currentPagePreset;
+    if (preset == null) {
+      _showError('当前页暂无可播放动画');
+      return;
+    }
+    final script = _parseScript(preset.generatedDsl);
+    if (script == null) {
+      _showError('老师预设脚本格式异常');
+      return;
+    }
+    _openScriptPlayer(script);
+  }
+
+  Future<void> _showTeacherPresetActions() async {
+    final preset = _currentPagePreset;
+    if (preset == null) {
+      await _showTeacherPresetSheet();
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('第 $_currentPageNumber 页动画',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.play_circle_fill_rounded, color: AppTheme.primary),
+                      title: const Text('播放动画'),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _playCurrentPreset();
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.auto_fix_high_rounded, color: AppTheme.secondary),
+                      title: const Text('更换动画（重新生成）'),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showTeacherPresetSheet(initialPrompt: preset.prompt);
+                      },
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.errorColor),
+                      title: const Text('删除动画', style: TextStyle(color: AppTheme.errorColor)),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final ok = await _aiService.deletePresetConfig(
+                          '${widget.sectionId}',
+                          _currentPageNumber,
+                        );
+                        if (!mounted) return;
+                        if (ok) {
+                          await _reloadPresets();
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(content: Text('动画已删除')));
+                        } else {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showTeacherPresetSheet({String? initialPrompt}) async {
+    final promptController = TextEditingController(text: initialPrompt ?? '');
     bool generating = false;
     bool saving = false;
     AnimationScript? previewScript;
@@ -443,67 +529,6 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage>
     );
   }
 
-  void _openPresetForStudent() {
-    final preset = _currentPagePreset;
-    if (preset == null) return;
-    final script = _parseScript(preset.generatedDsl);
-    if (script == null) {
-      _showError('老师预设脚本格式异常');
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.lightbulb_rounded, color: Color(0xFFFFB020)),
-                        SizedBox(width: 8),
-                        Text('老师留下的锦囊', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(preset.prompt, style: const TextStyle(color: AppTheme.bodyColor, fontSize: 13)),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _openScriptPlayer(script);
-                        },
-                        icon: const Icon(Icons.play_circle_fill_rounded),
-                        label: const Text('播放演示'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget? _buildAdaptiveFab() {
     if (!_isPdf || widget.sectionId == null) return null;
 
@@ -512,36 +537,6 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage>
         onPressed: _showTeacherPresetSheet,
         icon: const Icon(Icons.add_rounded),
         label: const Text('预设知径'),
-      );
-    }
-
-    final preset = _currentPagePreset;
-    if (preset != null) {
-      return AnimatedBuilder(
-        animation: _glowController,
-        builder: (_, child) {
-          final t = _glowController.value;
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFFC85A).withValues(alpha: 0.22 + t * 0.2),
-                  blurRadius: 14 + t * 10,
-                  spreadRadius: 1 + t * 1.5,
-                ),
-              ],
-            ),
-            child: child,
-          );
-        },
-        child: FloatingActionButton.extended(
-          backgroundColor: const Color(0xFFFFB020),
-          foregroundColor: Colors.white,
-          onPressed: _openPresetForStudent,
-          icon: const Icon(Icons.auto_awesome_rounded),
-          label: const Text('老师留下的锦囊'),
-        ),
       );
     }
 
@@ -565,18 +560,48 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage>
         ),
         actions: [
           if (_isPdf)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: const Color(0xFFE8ECF2)),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: const Color(0xFFE8ECF2)),
+                    ),
+                    child: Text('第 $_currentPageNumber 页', style: const TextStyle(fontSize: 12)),
                   ),
-                  child: Text('第 $_currentPageNumber 页', style: const TextStyle(fontSize: 12)),
-                ),
+                  if (_currentPagePreset != null) ...[
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message: '播放当前页动画',
+                      child: Material(
+                        color: AppTheme.primary,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _isTeacher ? _showTeacherPresetActions : _playCurrentPreset,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppTheme.primary),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           IconButton(

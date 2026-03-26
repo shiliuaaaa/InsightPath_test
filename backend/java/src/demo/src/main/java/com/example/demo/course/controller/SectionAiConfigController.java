@@ -88,6 +88,20 @@ public class SectionAiConfigController {
         return ApiResponse.success("获取成功", list);
     }
 
+    @DeleteMapping("/{sectionId}/ai-configs/{pageNumber}")
+    public ApiResponse<Void> deletePreset(@PathVariable Long sectionId,
+                                          @PathVariable Integer pageNumber,
+                                          HttpServletRequest request) {
+        if (pageNumber <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "pageNumber 必须为正整数");
+        }
+
+        User user = getCurrentUser(request);
+        ensureTeacherCanOperateSection(user, sectionId);
+        sectionAiConfigRepository.deleteBySectionIdAndPageNumber(sectionId, pageNumber);
+        return ApiResponse.success("删除成功", null);
+    }
+
     private SectionAiConfigItemResponse toItem(SectionAiConfig cfg) {
         SectionAiConfigItemResponse item = new SectionAiConfigItemResponse();
         item.setId(cfg.getId());

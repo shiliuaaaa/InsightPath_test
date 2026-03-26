@@ -442,6 +442,32 @@ class AiService {
     }
   }
 
+  Future<bool> deletePresetConfig(String sectionId, int pageNumber) async {
+    try {
+      final token = await _auth.getToken();
+      if (token == null) throw Exception('未登录');
+
+      final uri = Uri.parse('$baseUrl/sections/$sectionId/ai-configs/$pageNumber');
+      final resp = await _client.delete(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (kDebugMode) {
+        print('deletePresetConfig status: ${resp.statusCode}');
+      }
+      return resp.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('deletePresetConfig error: $e');
+      }
+      return false;
+    }
+  }
+
   /// 假实现（降级用）
   Future<AiMessage?> sendChatFake({
     required int sectionId,
