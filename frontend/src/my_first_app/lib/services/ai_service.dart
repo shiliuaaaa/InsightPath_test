@@ -4,10 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/ai_message.dart';
+import '../models/animation_dsl.dart';
 import 'auth_service.dart';
 
 class AiService {
   static const String baseUrl = 'http://localhost:8080/api/v1';
+  // Python AI 服务地址（动画生成走这里）
+  static const String aiBaseUrl = 'http://localhost:5001';
 
   final AuthService _auth = AuthService();
   final http.Client _client = http.Client();
@@ -142,6 +145,48 @@ class AiService {
       }
       return false;
     }
+  }
+
+  /// 调用 AI 服务生成 DSL 动画剧本
+  /// [prompt] 用户的自然语言描述，例如 "演示冒泡排序，数组为 [5,3,1,4,2]"
+  Future<AnimationScript> generateAnimationScript(String prompt) async {
+    final uri = Uri.parse('$aiBaseUrl/api/v1/chat/animation');
+    final body = jsonEncode({'prompt': prompt});
+
+    if (kDebugMode) {
+      print('generateAnimationScript prompt: $prompt');
+    }
+
+    late http.Response resp;
+    try {
+      resp = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: body,
+          )
+          .timeout(const Duration(seconds: 60));
+    } catch (e) {
+      throw Exception('网络请求失败：$e');
+    }
+
+    if (kDebugMode) {
+      print('generateAnimationScript status: \${resp.statusCode}');
+    }
+
+    if (resp.statusCode != 200) {
+      throw Exception('生成失败（${resp.statusCode}）：${resp.body}');
+    }
+
+    final responseJson = jsonDecode(resp.body) as Map<String, dynamic>;
+    final code = responseJson['code'] as int? ?? 0;
+    if (code != 200) {
+      throw Exception('服务返回错误：${responseJson['message']}');
+    }
+
+    final scriptJson =
+        (responseJson['data'] as Map<String, dynamic>)['script'] as Map<String, dynamic>;
+    return AnimationScript.fromJson(scriptJson);
   }
 
   /// 假实现（降级用）

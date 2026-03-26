@@ -63,11 +63,11 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
     final created = await Navigator.push<Course?>(
       context, MaterialPageRoute(builder: (_) => const CreateCoursePage()));
     if (created != null) setState(() => _courses = [created, ..._courses]);
-  }
+    }
 
   void _showCourseActions(Course c, int index) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
+                final action = await showModalBottomSheet<String>(
+                  context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         decoration: const BoxDecoration(
@@ -75,9 +75,9 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
             Container(width: 36, height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(color: AppTheme.borderColor, borderRadius: BorderRadius.circular(2))),
@@ -88,16 +88,16 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
             _sheetTile(Icons.group_outlined, '学生管理', AppTheme.bodyColor, 'students'),
           ],
         ),
-      ),
-    );
+                      ),
+                    );
     if (!mounted) return;
-    if (action == 'detail') {
+                if (action == 'detail') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => CourseDetailPage(course: c)));
-    } else if (action == 'settings') {
-      final updated = await Navigator.push<Course?>(
+                } else if (action == 'settings') {
+                  final updated = await Navigator.push<Course?>(
         context, MaterialPageRoute(builder: (_) => CourseSettingsPage(course: c)));
       if (updated != null) setState(() => _courses[index] = updated);
-    } else if (action == 'students') {
+                } else if (action == 'students') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => CourseStudentsPage(course: c)));
     }
   }
@@ -112,7 +112,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
     trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor, size: 18),
     onTap: () => Navigator.pop(context, value),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  );
+                  );
 
   Widget _buildCoursesTab() {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
@@ -125,7 +125,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
           const SizedBox(height: 16),
           ElevatedButton(onPressed: _loadCourses, child: const Text('重试')),
         ]),
-      );
+            );
     }
     if (_courses.isEmpty) {
       return Center(
@@ -140,7 +140,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
         const SizedBox(height: 8),
         const Text('点击右下角创建第一门课程', style: TextStyle(color: AppTheme.bodyColor)),
       ]),
-    );
+      );
     }
     return RefreshIndicator(
       onRefresh: _loadCourses,
@@ -165,7 +165,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
             gradient: LinearGradient(
               begin: Alignment.topLeft, end: Alignment.bottomRight,
               colors: [Color(0xFF1A4F95), Color(0xFF3AAFA9)],
-            ),
+        ),
           ),
           padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
           child: Row(
@@ -174,7 +174,7 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
                 radius: 30,
                 backgroundColor: Colors.white.withValues(alpha: 0.2),
                 child: Text(initial, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
+        ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -291,13 +291,13 @@ class _TeacherHomePageState extends State<TeacherHomePage> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFF0F0F5)))),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+        currentIndex: _currentIndex,
           onTap: (i) => setState(() => _currentIndex = i),
-          items: const [
+        items: const [
             BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book_rounded), label: '课程'),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: '我的'),
           ],
-        ),
+          ),
       ),
     );
   }

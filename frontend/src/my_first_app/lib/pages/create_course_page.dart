@@ -113,7 +113,7 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
               // const SizedBox(height: 12),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _status,
+                initialValue: _status,
                 decoration: const InputDecoration(labelText: '课程状态'),
                 items: const [
                   DropdownMenuItem(
@@ -137,7 +137,7 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _visibility,
+                initialValue: _visibility,
                 decoration: const InputDecoration(labelText: '可见性'),
                 items: const [
                   DropdownMenuItem(
@@ -161,7 +161,7 @@ class _CreateCoursePageState extends State<CreateCoursePage> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _permission,
+                initialValue: _permission,
                 decoration: const InputDecoration(labelText: '加入方式'),
                 items: const [
                   DropdownMenuItem(

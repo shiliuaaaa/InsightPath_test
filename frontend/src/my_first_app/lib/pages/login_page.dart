@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
       if (result) {
         final user = await _authService.getCurrentUser();
         final role = user?['role'] as String? ?? 'STUDENT';
-        if (!mounted) return;
+      if (!mounted) return;
         Navigator.of(context).pushReplacement(MaterialPageRoute(
           builder: (_) => role == 'TEACHER' ? const TeacherHomePage() : const StudentHomePage(),
         ));
@@ -63,7 +63,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Stack(
-        children: [
+              children: [
           // 顶部装饰背景
           Positioned(
             top: 0, left: 0, right: 0,
@@ -71,12 +71,12 @@ class _LoginPageState extends State<LoginPage> {
               height: 280,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                   colors: [Color(0xFF1A4F95), Color(0xFF1E6BB8)],
                 ),
-              ),
-            ),
+                          ),
+                        ),
           ),
           // 装饰圆形
           Positioned(
@@ -114,17 +114,17 @@ class _LoginPageState extends State<LoginPage> {
                       border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
                     ),
                     child: const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 38),
-                  ),
+                      ),
                   const SizedBox(height: 16),
                   const Text('灵犀知径',
                     style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800,
                       color: Colors.white, letterSpacing: 2),
-                  ),
+                      ),
                   const SizedBox(height: 6),
                   Text('AI 赋能 · 智慧学习路径导航',
                     style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), letterSpacing: 0.5),
-                  ),
-                  const SizedBox(height: 40),
+                      ),
+                const SizedBox(height: 40),
                   // 登录卡片
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -139,11 +139,11 @@ class _LoginPageState extends State<LoginPage> {
                       padding: const EdgeInsets.all(28),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                      children: [
                           // 角色切换
                           Container(
                             height: 44,
-                            decoration: BoxDecoration(
+                              decoration: BoxDecoration(
                               color: AppTheme.bg,
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -158,51 +158,51 @@ class _LoginPageState extends State<LoginPage> {
                           const Text('欢迎回来',
                             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700,
                               color: AppTheme.titleColor),
-                          ),
+                                ),
                           const SizedBox(height: 4),
                           const Text('请登录您的账号',
                             style: TextStyle(fontSize: 13, color: AppTheme.bodyColor),
-                          ),
+                                ),
                           const SizedBox(height: 24),
                           // 用户名
-                          TextField(
-                            controller: _usernameController,
-                            enabled: !_isLoading,
+                TextField(
+                  controller: _usernameController,
+                  enabled: !_isLoading,
                             decoration: const InputDecoration(
-                              hintText: '用户名',
+                    hintText: '用户名',
                               prefixIcon: Icon(Icons.person_outline_rounded, color: AppTheme.primary, size: 20),
-                            ),
-                          ),
+                      ),
+                    ),
                           const SizedBox(height: 14),
                           // 密码
-                          TextField(
-                            controller: _passwordController,
-                            enabled: !_isLoading,
-                            obscureText: !_passwordVisible,
-                            decoration: InputDecoration(
-                              hintText: '密码',
+                TextField(
+                  controller: _passwordController,
+                  enabled: !_isLoading,
+                  obscureText: !_passwordVisible,
+                  decoration: InputDecoration(
+                    hintText: '密码',
                               prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primary, size: 20),
-                              suffixIcon: IconButton(
-                                icon: Icon(
+                    suffixIcon: IconButton(
+                      icon: Icon(
                                   _passwordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                                   color: AppTheme.hintColor, size: 20,
-                                ),
+                      ),
                                 onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-                              ),
+                    ),
                             ),
                           ),
                           // 状态提示
                           if (_statusMessage != null) ...[  
-                            const SizedBox(height: 12),
-                            Container(
+                const SizedBox(height: 12),
+                  Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                                 color: (_isSuccess ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
+                      border: Border.all(
                                   color: (_isSuccess ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.3),
-                                ),
-                              ),
+                      ),
+                    ),
                               child: Row(
                                 children: [
                                   Icon(
@@ -213,36 +213,36 @@ class _LoginPageState extends State<LoginPage> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(_statusMessage!,
-                                      style: TextStyle(
-                                        fontSize: 13,
+                      style: TextStyle(
+                        fontSize: 13,
                                         color: _isSuccess ? AppTheme.successColor : AppTheme.errorColor,
-                                      ),
-                                    ),
-                                  ),
+                      ),
+                    ),
+                  ),
                                 ],
                               ),
                             ),
                           ],
-                          const SizedBox(height: 24),
-                          // 登录按钮
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
-                              child: _isLoading
+                const SizedBox(height: 24),
+                // 登录按钮
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handleLogin,
+                    child: _isLoading
                                   ? const SizedBox(width: 20, height: 20,
                                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                   : const Text('登 录'),
-                            ),
-                          ),
+                  ),
+                ),
                           const SizedBox(height: 20),
                           // 注册入口
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                               const Text('还没有账号？', style: TextStyle(fontSize: 13, color: AppTheme.bodyColor)),
-                              TextButton(
+                      TextButton(
                                 onPressed: _isLoading ? null : _showRegisterDialog,
                                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4)),
                                 child: const Text('立即注册',
@@ -262,11 +262,11 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 24),
                 ],
-              ),
-            ),
-          ),
-        ],
-      ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
     );
   }
 
@@ -384,7 +384,7 @@ class _LoginPageState extends State<LoginPage> {
                         child: sendingCode
                             ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Text('发送验证码'),
-                      ),
+                  ),
                     ),
                   ],
                 ),

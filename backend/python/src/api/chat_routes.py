@@ -1,8 +1,8 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
-from schemas.model import ChatRequest
-from client.deepseek_client import chat_with_deepseek_from_db
+from schemas.model import AnimationGenerateRequest, AnimationGenerateResponse, ChatRequest
+from client.deepseek_client import chat_with_deepseek_from_db, generate_animation_script
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,4 +38,22 @@ def chat(request: ChatRequest):
         raise
     except Exception as e:
         logger.exception("Error processing chat request")
+        raise HTTPException(status_code=500, detail="internal error") from e
+
+
+@router.post("/api/v1/chat/animation", response_model=dict)
+async def generate_animation(request: AnimationGenerateRequest):
+    """根据用户自然语言 prompt 生成 DSL 动画剧本。"""
+    logger.info("Received animation generation request: prompt=%r", request.prompt[:80])
+    try:
+        script = await generate_animation_script(request.prompt)
+        return {
+            "code": 200,
+            "message": "success",
+            "data": AnimationGenerateResponse(script=script).model_dump(),
+        }
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Error generating animation script")
         raise HTTPException(status_code=500, detail="internal error") from e

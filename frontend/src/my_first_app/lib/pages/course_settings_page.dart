@@ -68,9 +68,9 @@ class _CourseSettingsPageState extends State<CourseSettingsPage> {
 
       if (!mounted) return;
       if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('课程设置已保存')),
-        );
+      );
         Navigator.pop(context, true);
       } else {
         setState(() {

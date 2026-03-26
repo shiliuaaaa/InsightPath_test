@@ -160,7 +160,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       labelText: '密码',
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
-                            ? Icons.visibility_off
+                              ? Icons.visibility_off
                             : Icons.visibility),
                         onPressed: () => setState(
                             () => _obscurePassword = !_obscurePassword),
@@ -179,7 +179,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       labelText: '确认密码',
                       suffixIcon: IconButton(
                         icon: Icon(_obscureConfirm
-                            ? Icons.visibility_off
+                              ? Icons.visibility_off
                             : Icons.visibility),
                         onPressed: () => setState(
                             () => _obscureConfirm = !_obscureConfirm),
@@ -290,25 +290,25 @@ class _RegisterPageState extends State<RegisterPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: RadioListTile<String>(
-                          value: 'TEACHER',
-                          groupValue: _role,
-                          title: const Text('老师'),
-                          onChanged: (v) {
-                            if (v == null) return;
-                            setState(() => _role = v);
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment<String>(
+                              value: 'TEACHER',
+                              label: Text('老师'),
+                              icon: Icon(Icons.school),
+                            ),
+                            ButtonSegment<String>(
+                              value: 'STUDENT',
+                              label: Text('学生'),
+                              icon: Icon(Icons.person),
+                            ),
+                          ],
+                          selected: {_role},
+                          onSelectionChanged: (selection) {
+                            if (selection.isEmpty) return;
+                            setState(() => _role = selection.first);
                           },
-                        ),
-                      ),
-                      Expanded(
-                        child: RadioListTile<String>(
-                          value: 'STUDENT',
-                          groupValue: _role,
-                          title: const Text('学生'),
-                          onChanged: (v) {
-                            if (v == null) return;
-                            setState(() => _role = v);
-                          },
+                          showSelectedIcon: false,
                         ),
                       ),
                     ],
@@ -344,7 +344,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ? '提示：老师注册后登录将进入教师端首页；学生注册后登录会进入学生端首页。'
                         : '提示：学生账号适合体验选课、加入课程等功能。',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                    ),
                 ],
               ),
             ),

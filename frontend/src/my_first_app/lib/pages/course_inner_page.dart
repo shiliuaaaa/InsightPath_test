@@ -101,11 +101,11 @@ class _CourseInnerPageState extends State<CourseInnerPage>
       );
       _displaySection = display;
 
-      final content = await _sectionService.fetchDisplayContent(
-        widget.course.id,
-        display.id,
-      );
-      final finalContent = content ?? '# 暂无讲义内容';
+        final content = await _sectionService.fetchDisplayContent(
+          widget.course.id,
+          display.id,
+        );
+        final finalContent = content ?? '# 暂无讲义内容';
       if (mounted) {
         setState(() {
           _displayContent = finalContent;
@@ -114,9 +114,9 @@ class _CourseInnerPageState extends State<CourseInnerPage>
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _displayError = '加载讲义失败：$e';
-        });
+      setState(() {
+        _displayError = '加载讲义失败：$e';
+      });
       }
     } finally {
       if (mounted) {
@@ -143,9 +143,9 @@ class _CourseInnerPageState extends State<CourseInnerPage>
           const SnackBar(content: Text('讲义已保存')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('保存失败，请重试')),
-        );
+      );
       }
     } catch (e) {
       if (!mounted) return;
@@ -351,23 +351,23 @@ class _CourseInnerPageState extends State<CourseInnerPage>
         parentId: parentId,
       );
       if (mounted) {
-        setState(() {
-          if (result != null) {
-            _files = result.files;
-            _currentFolderId = result.currentFolderId;
-            _path = result.path;
-          } else {
-            _files = [];
-            _path = [];
-          }
-        });
+      setState(() {
+        if (result != null) {
+          _files = result.files;
+          _currentFolderId = result.currentFolderId;
+          _path = result.path;
+        } else {
+          _files = [];
+          _path = [];
+        }
+      });
       }
     } catch (e) {
       if (mounted) setState(() => _filesError = '加载文件失败：$e');
     } finally {
       if (mounted) setState(() => _loadingFiles = false);
+      }
     }
-  }
 
   /// 问题7修复：重命名对接后端
   Future<void> _renameItem(FileItem item) async {
@@ -411,7 +411,7 @@ class _CourseInnerPageState extends State<CourseInnerPage>
     } else {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('重命名失败，请重试')));
-    }
+  }
   }
 
   /// 问题7修复：删除对接后端
@@ -494,10 +494,10 @@ class _CourseInnerPageState extends State<CourseInnerPage>
         child: _files.isEmpty
             ? const Center(child: Text('暂无文件'))
             : ListView.builder(
-                itemCount: _files.length,
-                itemBuilder: (context, index) {
-                  final item = _files[index];
-                  final isFolder = item.type == 'FOLDER';
+          itemCount: _files.length,
+          itemBuilder: (context, index) {
+            final item = _files[index];
+            final isFolder = item.type == 'FOLDER';
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 6),
@@ -515,7 +515,7 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                             ? const Color(0xFFFFF3E0)
                             : AppTheme.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
-                      ),
+              ),
                       child: Icon(
                         isFolder ? Icons.folder_rounded : _fileIcon(item.extension),
                         color: isFolder ? const Color(0xFFF59E0B) : AppTheme.primary,
@@ -533,26 +533,26 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                         ? PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.hintColor),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            onSelected: (value) {
+                    onSelected: (value) {
                               if (value == 'rename') { _renameItem(item); }
                               else if (value == 'delete') { _deleteItem(item); }
-                            },
+                    },
                             itemBuilder: (context) => [
                               const PopupMenuItem(value: 'rename',
                                 child: Row(children: [Icon(Icons.drive_file_rename_outline_rounded, size: 18), SizedBox(width: 8), Text('重命名')])),
                               const PopupMenuItem(value: 'delete',
                                 child: Row(children: [Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red), SizedBox(width: 8), Text('删除', style: TextStyle(color: Colors.red))])),
-                            ],
+                          ],
                           )
                         : const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.hintColor),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    onTap: isFolder
-                        ? () {
-                            _folderStack.add(item);
-                            _loadFiles(
+              onTap: isFolder
+                  ? () {
+                      _folderStack.add(item);
+                      _loadFiles(
                                 parentId: int.tryParse(item.id) ?? 0);
-                          }
-                        : () {
+                    }
+                  : () {
                             // 跳转到预览页面
                             final hasPdf = item.pdfUrl != null && item.pdfUrl!.isNotEmpty;
                             final ext = (item.extension ?? '').toLowerCase();
@@ -579,9 +579,9 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                             }
                           },
                   ),
-                  );
-                },
-              ),
+            );
+          },
+        ),
       ),
     );
 
@@ -648,7 +648,7 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                   child: OutlinedButton.icon(
                     onPressed: _createFolder,
                     icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-                    label: const Text('新建文件夹'),
+                label: const Text('新建文件夹'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.primary,
                       side: const BorderSide(color: AppTheme.primary),
@@ -656,7 +656,7 @@ class _CourseInnerPageState extends State<CourseInnerPage>
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
-                ),
+              ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
@@ -727,9 +727,9 @@ class _CourseInnerPageState extends State<CourseInnerPage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发送失败：$e')),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败：$e')),
+      );
       }
     } finally {
       if (mounted) setState(() => _sending = false);

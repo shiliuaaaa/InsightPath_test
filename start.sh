@@ -85,9 +85,9 @@ load_env() {
 # 启动 Java 后端
 start_java() {
     print_info "启动 Java 后端服务..."
-
+    
     JAVA_DIR="$SCRIPT_DIR/backend/java/src/demo"
-
+    
     if [ ! -d "$JAVA_DIR" ]; then
         print_error "Java 项目目录不存在: $JAVA_DIR"
         return 1
@@ -100,38 +100,38 @@ start_java() {
         sleep 1
         print_success "端口 8080 已释放"
     fi
-
+    
     cd "$JAVA_DIR"
-
+    
     # 设置 Java 17
     export JAVA_HOME=/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home
     export PATH="$JAVA_HOME/bin:$PATH"
-
+    
     print_info "Java 版本:"
     java -version
-
+    
     print_warning "⚠️  请确保 PostgreSQL 数据库已启动在 localhost:5432"
     echo ""
-
+    
     print_info "启动 Spring Boot 应用..."
     nohup ./mvnw spring-boot:run > /tmp/java_backend.log 2>&1 &
     JAVA_PID=$!
     disown $JAVA_PID
-
+    
     print_success "Java 后端已启动 (PID: $JAVA_PID)"
     print_info "日志: tail -f /tmp/java_backend.log"
     print_info "访问地址: http://localhost:8080"
-
+    
     return 0
 }
 
 # 启动 Python AI 服务
 start_python() {
     print_info "启动 Python AI 服务..."
-
+    
     PYTHON_DIR="$SCRIPT_DIR/backend/python/src"
     PYTHON_PORT="${PYTHON_PORT:-5001}"
-
+    
     if [ ! -d "$PYTHON_DIR" ]; then
         print_error "Python 项目目录不存在: $PYTHON_DIR"
         return 1
@@ -153,17 +153,17 @@ start_python() {
         sleep 1
         print_success "端口 $PYTHON_PORT 已释放"
     fi
-
+    
     cd "$PYTHON_DIR"
-
+    
     # 检查 Python 版本
     if ! command -v python3 &> /dev/null; then
         print_error "Python 3 未安装"
         return 1
     fi
-
+    
     print_info "Python 版本: $(python3 --version)"
-
+    
     # 检查虚拟环境，不存在则创建
     if [ ! -d "venv" ]; then
         print_warning "虚拟环境不存在，正在创建..."
@@ -176,7 +176,7 @@ start_python() {
 
     VENV_PIP="$PYTHON_DIR/venv/bin/pip"
     VENV_UVICORN="$PYTHON_DIR/venv/bin/uvicorn"
-
+    
     # 安装依赖
     if [ -f "requirements.txt" ]; then
         print_info "检查并安装依赖..."
@@ -190,7 +190,7 @@ start_python() {
         print_info "安装 uvicorn..."
         "$VENV_PIP" install -q uvicorn fastapi
     fi
-
+    
     print_info "启动 Python AI 服务 (端口: $PYTHON_PORT)..."
 
     DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
@@ -224,27 +224,27 @@ start_python() {
 # 启动前端
 start_frontend() {
     print_info "启动 Flutter 前端..."
-
+    
     FRONTEND_DIR="$SCRIPT_DIR/frontend/src/my_first_app"
-
+    
     if [ ! -d "$FRONTEND_DIR" ]; then
         print_error "前端项目目录不存在: $FRONTEND_DIR"
         return 1
     fi
-
+    
     cd "$FRONTEND_DIR"
-
+    
     # 检查 Flutter
     if ! command -v flutter &> /dev/null; then
         print_error "Flutter 未安装"
         return 1
     fi
-
+    
     print_info "获取依赖..."
     flutter pub get
-
+    
     print_info "启动 Flutter 应用..."
-
+    
     # 检测平台
     if [ "$(uname)" == "Darwin" ]; then
         print_info "在 macOS 上启动..."
@@ -261,23 +261,23 @@ start_frontend() {
         print_info "  flutter run -d ios"
         return 1
     fi
-
+    
     FLUTTER_PID=$!
     print_success "Flutter 前端已启动 (PID: $FLUTTER_PID)"
-
+    
     return 0
 }
 
 # 启动后端
 start_backend() {
     print_info "启动后端服务..."
-
+    
     start_java
     JAVA_RESULT=$?
-
+    
     start_python
     PYTHON_RESULT=$?
-
+    
     if [ $JAVA_RESULT -eq 0 ] && [ $PYTHON_RESULT -eq 0 ]; then
         print_success "后端服务已启动"
         return 0
@@ -290,16 +290,16 @@ start_backend() {
 # 启动全部
 start_all() {
     print_info "启动全部服务..."
-
+    
     start_backend
     BACKEND_RESULT=$?
-
+    
     # 等待后端启动完成
     sleep 3
-
+    
     start_frontend
     FRONTEND_RESULT=$?
-
+    
     if [ $BACKEND_RESULT -eq 0 ] && [ $FRONTEND_RESULT -eq 0 ]; then
         print_success "所有服务已启动"
         return 0
@@ -319,10 +319,10 @@ main() {
 
     # 加载 .env 文件
     load_env
-
+    
     # 获取参数，默认为 "all"
     COMMAND="${1:-all}"
-
+    
     case "$COMMAND" in
         all)
             start_all
@@ -349,9 +349,9 @@ main() {
             exit 1
             ;;
     esac
-
+    
     RESULT=$?
-
+    
     echo ""
     if [ $RESULT -eq 0 ]; then
         print_success "启动完成！"
@@ -359,7 +359,7 @@ main() {
         print_info "  Java 后端: tail -f /tmp/java_backend.log"
         print_info "  Python AI: tail -f /tmp/python_ai.log"
         print_info "按 Ctrl+C 停止前台进程"
-
+        
         # 保持脚本运行
         wait
     else

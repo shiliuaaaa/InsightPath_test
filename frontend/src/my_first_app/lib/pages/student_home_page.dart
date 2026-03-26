@@ -87,9 +87,9 @@ class _StudentHomePageState extends State<StudentHomePage> {
               ),
               onChanged: (v) => setState(() => _keyword = v),
               onSubmitted: (_) => _loadCourses(),
-            ),
-          ),
-        ),
+                            ),
+                          ),
+                        ),
         // 课程内容
         if (_isLoading)
           const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
@@ -117,9 +117,9 @@ class _StudentHomePageState extends State<StudentHomePage> {
                   Icon(Icons.school_outlined, size: 56, color: AppTheme.hintColor),
                   SizedBox(height: 12),
                   Text('暂无课程', style: TextStyle(color: AppTheme.bodyColor, fontSize: 15)),
-                ],
+                  ],
+                ),
               ),
-            ),
           )
         else
           SliverPadding(
@@ -148,8 +148,8 @@ class _StudentHomePageState extends State<StudentHomePage> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [Color(0xFF1A4F95), Color(0xFF1E6BB8)],
-            ),
-          ),
+                ),
+              ),
           padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
           child: Row(
             children: [
@@ -253,11 +253,11 @@ class _StudentHomePageState extends State<StudentHomePage> {
         title: Text(_currentIndex == 0 ? '发现课程' : '我的'),
         actions: [
           if (_currentIndex == 0)
-            IconButton(
+          IconButton(
               icon: const Icon(Icons.refresh_rounded),
               onPressed: _loadCourses,
               tooltip: '刷新',
-            ),
+          ),
         ],
       ),
       body: IndexedStack(
@@ -269,12 +269,12 @@ class _StudentHomePageState extends State<StudentHomePage> {
           border: Border(top: BorderSide(color: Color(0xFFF0F0F5))),
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+        currentIndex: _currentIndex,
           onTap: (i) => setState(() => _currentIndex = i),
-          items: const [
+        items: const [
             BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), activeIcon: Icon(Icons.explore_rounded), label: '发现'),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), activeIcon: Icon(Icons.person_rounded), label: '我的'),
-          ],
+        ],
         ),
       ),
     );

@@ -83,10 +83,10 @@ class _CourseStudentsPageState extends State<CourseStudentsPage> {
       );
       _loadMembers();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('操作失败，请重试')),
-      );
-    }
+    );
+  }
   }
 
   Future<void> _reject(CourseMember m) async {
@@ -139,7 +139,7 @@ class _CourseStudentsPageState extends State<CourseStudentsPage> {
       );
       _loadMembers();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('移除失败，请重试')),
       );
     }
@@ -200,7 +200,7 @@ class _CourseStudentsPageState extends State<CourseStudentsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('邀请出错：$e')),
-      );
+    );
     }
   }
 
