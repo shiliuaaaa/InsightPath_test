@@ -165,6 +165,91 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
     }
   }
 
+  AnimationScript _defaultBubbleSortScript() {
+    final initialValues = [5, 3, 8, 1, 2];
+    final nodeOrder = List.generate(initialValues.length, (i) => 'node_$i');
+    final values = List<int>.from(initialValues);
+    final steps = <Map<String, dynamic>>[];
+
+    steps.add({
+      'step_index': 0,
+      'narration': '初始化数组：$initialValues。',
+      'actions': [
+        {'action': 'CREATE', 'entity_id': 'array_container', 'type': 'ArrayContainer', 'index': [0, 0]},
+        for (var i = 0; i < initialValues.length; i++)
+          {
+            'action': 'CREATE',
+            'entity_id': 'node_$i',
+            'type': 'ArrayNode',
+            'value': '${initialValues[i]}',
+            'pos': i,
+            'theme': 'default',
+          },
+      ],
+    });
+
+    var stepIndex = 1;
+    final n = values.length;
+
+    for (var pass = 0; pass < n - 1; pass++) {
+      final rightBoundary = n - 1 - pass;
+      for (var j = 0; j < rightBoundary; j++) {
+        final leftId = nodeOrder[j];
+        final rightId = nodeOrder[j + 1];
+        final leftVal = values[j];
+        final rightVal = values[j + 1];
+        final shouldSwap = leftVal > rightVal;
+
+        final actions = <Map<String, dynamic>>[
+          {'action': 'UPDATE', 'entity_id': leftId, 'theme': 'active'},
+          {'action': 'UPDATE', 'entity_id': rightId, 'theme': 'active'},
+        ];
+
+        if (shouldSwap) {
+          actions.add({'action': 'SWAP', 'entity_id_1': leftId, 'entity_id_2': rightId});
+
+          final tmpValue = values[j];
+          values[j] = values[j + 1];
+          values[j + 1] = tmpValue;
+
+          final tmpId = nodeOrder[j];
+          nodeOrder[j] = nodeOrder[j + 1];
+          nodeOrder[j + 1] = tmpId;
+        }
+
+        actions.add({'action': 'UPDATE', 'entity_id': leftId, 'theme': 'default'});
+        actions.add({'action': 'UPDATE', 'entity_id': rightId, 'theme': 'default'});
+
+        if (j == rightBoundary - 1) {
+          actions.add({'action': 'UPDATE', 'entity_id': nodeOrder[rightBoundary], 'theme': 'locked'});
+        }
+
+        final suffix = j == rightBoundary - 1 ? '，${values[rightBoundary]} 到达末尾。' : '。';
+        steps.add({
+          'step_index': stepIndex++,
+          'narration': '第${pass + 1}轮：比较 $leftVal 和 $rightVal，${shouldSwap ? '交换' : '不交换'}$suffix',
+          'actions': actions,
+        });
+      }
+    }
+
+    steps.add({
+      'step_index': stepIndex,
+      'narration': '排序完成：$values。',
+      'actions': [
+        for (final id in nodeOrder)
+          {'action': 'UPDATE', 'entity_id': id, 'theme': 'locked'},
+      ],
+    });
+
+    return AnimationScript.fromJson({
+      'version': '4.0',
+      'title': '冒泡排序演示',
+      'scene': 'array_sort',
+      'steps': steps,
+    });
+  }
+
   void _openScriptPlayer(AnimationScript script) {
     Navigator.push(
       context,
@@ -173,16 +258,7 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
   }
 
   void _playCurrentPreset() {
-    final preset = _currentPagePreset;
-    if (preset == null) {
-      _showError('当前页暂无可播放动画');
-      return;
-    }
-    final script = _parseScript(preset.generatedDsl);
-    if (script == null) {
-      _showError('老师预设脚本格式异常');
-      return;
-    }
+    final script = _defaultBubbleSortScript();
     _openScriptPlayer(script);
   }
 
@@ -335,14 +411,8 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                                         if (prompt.isEmpty) return;
                                         setSheetState(() => generating = true);
                                         try {
-                                          final script = await _aiService.generateAnimationScript(prompt);
+                                          final script = _defaultBubbleSortScript();
                                           setSheetState(() => previewScript = script);
-                                        } catch (e) {
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('生成失败：$e')),
-                                            );
-                                          }
                                         } finally {
                                           setSheetState(() => generating = false);
                                         }
@@ -495,14 +565,10 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                                     if (prompt.isEmpty) return;
                                     setSheetState(() => generating = true);
                                     try {
-                                      final script = await _aiService.generateAnimationScript(prompt);
+                                      final script = _defaultBubbleSortScript();
                                       if (!mounted) return;
                                       Navigator.pop(ctx);
                                       _openScriptPlayer(script);
-                                    } catch (e) {
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(SnackBar(content: Text('生成失败：$e')));
                                     } finally {
                                       setSheetState(() => generating = false);
                                     }

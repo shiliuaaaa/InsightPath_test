@@ -465,6 +465,69 @@ class SectionService {
     }
   }
 
+  Future<SyllabusNode?> updateSyllabusNode({
+    required int courseId,
+    required int nodeId,
+    String? title,
+    int? resourceFileId,
+    String? question,
+    String? answer,
+    List<QuizOption>? options,
+  }) async {
+    try {
+      final token = await _auth.getSavedToken();
+      if (token == null) return null;
+
+      final uri = Uri.parse('$baseUrl/courses/$courseId/syllabus/nodes/$nodeId');
+      final body = <String, dynamic>{};
+      if (title != null) body['title'] = title;
+      if (resourceFileId != null) body['resource_file_id'] = resourceFileId;
+      if (question != null) body['question'] = question;
+      if (answer != null) body['answer'] = answer;
+      if (options != null) body['options'] = options.map((e) => e.toJson()).toList();
+
+      final resp = await _client.put(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode != 200) return null;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      return SyllabusNode.fromJson(data['data'] as Map<String, dynamic>);
+    } catch (e) {
+      if (kDebugMode) print('updateSyllabusNode error: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteSyllabusNode({
+    required int courseId,
+    required int nodeId,
+  }) async {
+    try {
+      final token = await _auth.getSavedToken();
+      if (token == null) return false;
+
+      final uri = Uri.parse('$baseUrl/courses/$courseId/syllabus/nodes/$nodeId');
+      final resp = await _client.delete(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      return resp.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) print('deleteSyllabusNode error: $e');
+      return false;
+    }
+  }
+
   /// 上传文件到课程资料区（返回新建 fileId，便于直接关联知识点）
   Future<int?> uploadFileForSyllabus({
     required int courseId,

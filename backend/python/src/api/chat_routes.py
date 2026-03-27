@@ -18,7 +18,7 @@ from client.deepseek_client import (
 )
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("AIService")
 
 
 @router.post("/internal/ai/chat")
@@ -38,7 +38,7 @@ def chat(request: ChatRequest):
             "data": {
                 "reply": answer,
                 "tokens_used": None,
-                "model_version": "deepseek-chat",
+                "model_version": "deepseek-reasoner",
             },
         }
     except ValueError as e:
@@ -64,7 +64,7 @@ def socratic_chat(request: SocraticChatRequest):
             "message": "success",
             "data": {
                 "reply": answer,
-                "model_version": "deepseek-chat",
+                "model_version": "deepseek-reasoner",
             },
         }
     except RuntimeError as e:
@@ -162,6 +162,13 @@ async def generate_animation(request: AnimationGenerateRequest):
     logger.info("Received animation generation request: prompt=%r", request.prompt[:80])
     try:
         script = await generate_animation_script(request.prompt)
+        logger.info("Animation generated: steps=%d", len(script.get("steps", [])))
+        preview = []
+        for step in script.get("steps", [])[:3]:
+            actions = step.get("actions", []) if isinstance(step, dict) else []
+            preview.append([a.get("action") for a in actions if isinstance(a, dict)])
+        logger.info("Animation action preview(first 3 steps): %s", preview)
+        logger.debug("Animation full script payload: %s", script)
         return {
             "code": 200,
             "message": "success",

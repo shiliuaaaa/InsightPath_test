@@ -8,6 +8,7 @@ import '../models/syllabus_node.dart';
 import '../services/section_service.dart';
 import '../utils/app_theme.dart';
 import 'courseware_viewer_page.dart';
+import 'global_ai_tutor_page.dart';
 
 class CourseSyllabusPage extends StatefulWidget {
   const CourseSyllabusPage({
@@ -364,6 +365,256 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
     );
   }
 
+  Future<void> _editNode(SyllabusNode node) async {
+    if (!widget.canEdit) return;
+
+    if (node.isChapter) {
+      final ctrl = TextEditingController(text: node.title);
+      final title = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('修改章节'),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: '章节名称'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('保存')),
+          ],
+        ),
+      );
+      if (title == null || title.isEmpty) return;
+      final ok = await _sectionService.updateSyllabusNode(
+        courseId: widget.courseId,
+        nodeId: node.id,
+        title: title,
+      );
+      if (!mounted) return;
+      if (ok != null) {
+        await _loadAll();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('章节已更新')));
+      }
+      return;
+    }
+
+    if (node.isKnowledge) {
+      final titleCtrl = TextEditingController(text: node.title);
+      await _ensureStorageSectionId();
+      final allFiles = await _collectAllFiles();
+      int? selectedFileId = node.resourceFileId;
+      String? selectedFileName = node.resourceName;
+
+      if (!mounted) return;
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) {
+          return StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              return Padding(
+                padding: EdgeInsets.fromLTRB(14, 14, 14, MediaQuery.of(ctx).viewInsets.bottom + 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('修改知识点', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(hintText: '知识点名称', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final chosen = await showDialog<FileItem>(
+                          context: ctx,
+                          builder: (ctx2) => AlertDialog(
+                            title: const Text('从资料中选择文件'),
+                            content: SizedBox(
+                              width: 480,
+                              height: 360,
+                              child: ListView.builder(
+                                itemCount: allFiles.length,
+                                itemBuilder: (_, i) {
+                                  final f = allFiles[i];
+                                  return ListTile(
+                                    leading: const Icon(Icons.insert_drive_file_rounded),
+                                    title: Text(f.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    onTap: () => Navigator.pop(ctx2, f),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                        if (chosen != null) {
+                          setSheetState(() {
+                            selectedFileId = int.tryParse(chosen.id);
+                            selectedFileName = chosen.name;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.link_rounded),
+                      label: const Text('重新选择关联资料'),
+                    ),
+                    if (selectedFileName != null) ...[
+                      const SizedBox(height: 8),
+                      Text('已选择：$selectedFileName', style: const TextStyle(fontSize: 12, color: AppTheme.bodyColor)),
+                    ],
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final title = titleCtrl.text.trim();
+                          if (title.isEmpty || selectedFileId == null) return;
+                          final updated = await _sectionService.updateSyllabusNode(
+                            courseId: widget.courseId,
+                            nodeId: node.id,
+                            title: title,
+                            resourceFileId: selectedFileId,
+                          );
+                          if (!mounted) return;
+                          if (updated != null) {
+                            Navigator.pop(ctx);
+                            await _loadAll();
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('知识点已更新')));
+                          }
+                        },
+                        child: const Text('保存修改'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
+      return;
+    }
+
+    final questionCtrl = TextEditingController(text: node.question ?? '');
+    final answerCtrl = TextEditingController(text: node.answer ?? '');
+    final options = node.options
+        .map((e) => QuizOption(key: e.key, content: e.content))
+        .toList();
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(14, 14, 14, MediaQuery.of(ctx).viewInsets.bottom + 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(node.isQuizChoice ? '修改选择题' : '修改大题', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: questionCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(hintText: '输入题目', border: OutlineInputBorder()),
+                  ),
+                  if (node.isQuizChoice) ...[
+                    const SizedBox(height: 10),
+                    ...options.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final option = entry.value;
+                      final ctrl = TextEditingController(text: option.content);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(width: 26, child: Text(option.key)),
+                            Expanded(
+                              child: TextField(
+                                controller: ctrl,
+                                onChanged: (v) => options[i] = QuizOption(key: option.key, content: v),
+                                decoration: const InputDecoration(hintText: '选项内容', border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: answerCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: node.isQuizChoice ? '输入正确答案选项（如 A）' : '输入示例回答',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final q = questionCtrl.text.trim();
+                        final a = answerCtrl.text.trim();
+                        if (q.isEmpty || a.isEmpty) return;
+                        final updated = await _sectionService.updateSyllabusNode(
+                          courseId: widget.courseId,
+                          nodeId: node.id,
+                          question: q,
+                          answer: a,
+                          options: node.isQuizChoice ? options : null,
+                        );
+                        if (!mounted) return;
+                        if (updated != null) {
+                          Navigator.pop(ctx);
+                          await _loadAll();
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('习题已更新')));
+                        }
+                      },
+                      child: const Text('保存修改'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteNode(SyllabusNode node) async {
+    if (!widget.canEdit) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('确定删除「${node.title}」吗？${node.isChapter ? '\n章节下所有知识点和习题会被一起删除。' : ''}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final ok = await _sectionService.deleteSyllabusNode(
+      courseId: widget.courseId,
+      nodeId: node.id,
+    );
+    if (!mounted) return;
+    if (ok) {
+      await _loadAll();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('删除成功')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+    }
+  }
+
   void _openKnowledge(SyllabusNode node) {
     final ext = (node.resourceExtension ?? '').toLowerCase();
     final hasPdf = node.resourcePdfUrl != null && node.resourcePdfUrl!.isNotEmpty;
@@ -389,7 +640,7 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _QuizPreviewPage(node: node),
+        builder: (_) => _QuizPreviewPage(node: node, canRevealImmediately: widget.canEdit),
       ),
     );
   }
@@ -448,6 +699,17 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                           icon: const Icon(Icons.quiz_outlined, size: 18),
                           label: const Text('加习题'),
                         ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: '编辑章节',
+                          onPressed: () => _editNode(chapter),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                        ),
+                        IconButton(
+                          tooltip: '删除章节',
+                          onPressed: () => _deleteNode(chapter),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                        ),
                       ],
                     ),
                   ),
@@ -477,7 +739,24 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                         ? Text(node.resourceName ?? '未关联文件', style: const TextStyle(fontSize: 12, color: AppTheme.hintColor))
                         : Text(node.question ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 12, color: AppTheme.hintColor)),
-                    trailing: const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.canEdit) ...[
+                          IconButton(
+                            tooltip: '编辑',
+                            onPressed: () => _editNode(node),
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                          ),
+                          IconButton(
+                            tooltip: '删除',
+                            onPressed: () => _deleteNode(node),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                          ),
+                        ],
+                        const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor),
+                      ],
+                    ),
                     onTap: () => node.isKnowledge ? _openKnowledge(node) : _openQuiz(node),
                   );
                 }),
@@ -543,9 +822,10 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
 }
 
 class _QuizPreviewPage extends StatefulWidget {
-  const _QuizPreviewPage({required this.node});
+  const _QuizPreviewPage({required this.node, required this.canRevealImmediately});
 
   final SyllabusNode node;
+  final bool canRevealImmediately;
 
   @override
   State<_QuizPreviewPage> createState() => _QuizPreviewPageState();
@@ -553,6 +833,20 @@ class _QuizPreviewPage extends StatefulWidget {
 
 class _QuizPreviewPageState extends State<_QuizPreviewPage> {
   String? selected;
+  final TextEditingController _essayController = TextEditingController();
+  bool _essaySubmitted = false;
+
+  bool get _shouldShowAnswer {
+    if (widget.canRevealImmediately) return true;
+    if (widget.node.isQuizChoice) return selected != null;
+    return _essaySubmitted;
+  }
+
+  @override
+  void dispose() {
+    _essayController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -560,6 +854,16 @@ class _QuizPreviewPageState extends State<_QuizPreviewPage> {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(title: const Text('习题预览')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const GlobalAiTutorPage(username: '同学')),
+          );
+        },
+        icon: const Icon(Icons.smart_toy_outlined),
+        label: const Text('AI 助教'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(14),
         child: Container(
@@ -586,20 +890,40 @@ class _QuizPreviewPageState extends State<_QuizPreviewPage> {
                     title: Text(value),
                     contentPadding: EdgeInsets.zero,
                   );
-                }),
+                })
+              else ...[
+                TextField(
+                  controller: _essayController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    hintText: '请输入你的答案后提交',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    if (_essayController.text.trim().isEmpty) return;
+                    setState(() => _essaySubmitted = true);
+                  },
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('提交答案'),
+                ),
+              ],
               const Spacer(),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+              if (_shouldShowAnswer)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    node.isQuizChoice ? '正确答案：${node.answer ?? ''}' : '参考答案：${node.answer ?? ''}',
+                    style: const TextStyle(color: AppTheme.titleColor),
+                  ),
                 ),
-                child: Text(
-                  node.isQuizChoice ? '正确答案：${node.answer ?? ''}' : '示例回答：${node.answer ?? ''}',
-                  style: const TextStyle(color: AppTheme.titleColor),
-                ),
-              ),
             ],
           ),
         ),

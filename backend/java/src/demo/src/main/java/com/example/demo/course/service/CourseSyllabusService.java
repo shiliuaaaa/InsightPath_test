@@ -148,6 +148,89 @@ public class CourseSyllabusService {
         return toTreeNode(courseId, syllabusNodeRepository.save(node));
     }
 
+    @Transactional
+    public SyllabusNodeResponse updateNode(Long courseId, Long nodeId, UpdateSyllabusNodeRequest body, User teacher) {
+        ensureTeacherOwner(courseId, teacher);
+        CourseSyllabusNode node = requireNode(courseId, nodeId);
+
+        switch (node.getType()) {
+            case CHAPTER -> {
+                if (body.getTitle() == null || body.getTitle().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "章节名称不能为空");
+                }
+                node.setTitle(body.getTitle().trim());
+            }
+            case KNOWLEDGE -> {
+                if (body.getTitle() == null || body.getTitle().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "知识点名称不能为空");
+                }
+                if (body.getResourceFileId() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "知识点必须关联一个资料文件");
+                }
+                CourseFile file = courseFileRepository.findById(body.getResourceFileId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "关联文件不存在"));
+                if (file.getType() != CourseFile.FileType.FILE) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "只能关联文件，不能关联文件夹");
+                }
+                node.setTitle(body.getTitle().trim());
+                node.setResourceFileId(body.getResourceFileId());
+            }
+            case QUIZ_CHOICE -> {
+                if (body.getQuestion() == null || body.getQuestion().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "题目不能为空");
+                }
+                if (body.getAnswer() == null || body.getAnswer().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "答案不能为空");
+                }
+                if (body.getOptions() == null || body.getOptions().isEmpty()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "选择题至少需要一个选项");
+                }
+                node.setQuestionText(body.getQuestion().trim());
+                node.setAnswerText(body.getAnswer().trim());
+                try {
+                    node.setOptionsJson(objectMapper.writeValueAsString(body.getOptions()));
+                } catch (Exception e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "选项格式错误");
+                }
+            }
+            case QUIZ_ESSAY -> {
+                if (body.getQuestion() == null || body.getQuestion().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "题目不能为空");
+                }
+                if (body.getAnswer() == null || body.getAnswer().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "答案不能为空");
+                }
+                node.setQuestionText(body.getQuestion().trim());
+                node.setAnswerText(body.getAnswer().trim());
+            }
+        }
+
+        node.setUpdatedAt(LocalDateTime.now());
+        return toTreeNode(courseId, syllabusNodeRepository.save(node));
+    }
+
+    @Transactional
+    public void deleteNode(Long courseId, Long nodeId, User teacher) {
+        ensureTeacherOwner(courseId, teacher);
+        CourseSyllabusNode node = requireNode(courseId, nodeId);
+
+        if (node.getType() == CourseSyllabusNode.NodeType.CHAPTER) {
+            List<CourseSyllabusNode> children = syllabusNodeRepository.findByParentIdOrderByOrderIndexAscIdAsc(node.getId());
+            syllabusNodeRepository.deleteAll(children);
+        }
+
+        syllabusNodeRepository.delete(node);
+    }
+
+    private CourseSyllabusNode requireNode(Long courseId, Long nodeId) {
+        CourseSyllabusNode node = syllabusNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "节点不存在"));
+        if (!node.getCourseId().equals(courseId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "nodeId 无效");
+        }
+        return node;
+    }
+
     private Course ensureCourseExists(Long courseId) {
         return courseRepository.findById(courseId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "课程不存在"));

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/animation_dsl.dart';
-import '../services/ai_service.dart';
 import '../widgets/animation_canvas.dart';
 import '../utils/app_theme.dart';
+import '../services/ai_service.dart';
 
 /// 动画播放器页面
 /// 支持：
@@ -25,8 +25,12 @@ class AnimationPlayerPage extends StatefulWidget {
 class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
   AnimationScript? currentScript;
 
+  // 一键切换：false=默认冒泡排序，true=调用 AI 生成
+  static const bool _useAiGeneratedAnimation = false;
+
+  final AiService _aiService = AiService();
+
   // ── AI 生成 ──
-  final _aiService = AiService();
   final _promptController = TextEditingController();
   bool _isGenerating = false;
   String? _errorMessage;
@@ -42,7 +46,7 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
     super.dispose();
   }
 
-  // ── AI 生成脚本 ──
+  // ── 生成脚本 ──
   Future<void> _generateWithAI() async {
     final prompt = _promptController.text.trim();
     if (prompt.isEmpty) {
@@ -56,7 +60,9 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
     });
 
     try {
-      final script = await _aiService.generateAnimationScript(prompt);
+      final script = _useAiGeneratedAnimation
+          ? await _aiService.generateAnimationScript(prompt)
+          : _builtInBubbleSortScript();
       setState(() {
         currentScript = script;
       });
@@ -269,6 +275,93 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
         ],
       ),
     );
+  }
+
+  AnimationScript _builtInBubbleSortScript() {
+    final initialValues = [5, 3, 8, 1, 2];
+    final nodeOrder = List.generate(initialValues.length, (i) => 'node_$i');
+    final values = List<int>.from(initialValues);
+    final steps = <Map<String, dynamic>>[];
+
+    steps.add({
+      'step_index': 0,
+      'narration': '初始化数组：$initialValues。',
+      'actions': [
+        {'action': 'CREATE', 'entity_id': 'array_container', 'type': 'ArrayContainer', 'index': [0, 0]},
+        for (var i = 0; i < initialValues.length; i++)
+          {
+            'action': 'CREATE',
+            'entity_id': 'node_$i',
+            'type': 'ArrayNode',
+            'value': '${initialValues[i]}',
+            'pos': i,
+            'theme': 'default',
+          },
+      ],
+    });
+
+    var stepIndex = 1;
+    final n = values.length;
+
+    for (var pass = 0; pass < n - 1; pass++) {
+      final rightBoundary = n - 1 - pass;
+      for (var j = 0; j < rightBoundary; j++) {
+        final leftId = nodeOrder[j];
+        final rightId = nodeOrder[j + 1];
+        final leftVal = values[j];
+        final rightVal = values[j + 1];
+        final shouldSwap = leftVal > rightVal;
+
+        final actions = <Map<String, dynamic>>[
+          {'action': 'UPDATE', 'entity_id': leftId, 'theme': 'active'},
+          {'action': 'UPDATE', 'entity_id': rightId, 'theme': 'active'},
+        ];
+
+        if (shouldSwap) {
+          actions.add({'action': 'SWAP', 'entity_id_1': leftId, 'entity_id_2': rightId});
+
+          final tmpValue = values[j];
+          values[j] = values[j + 1];
+          values[j + 1] = tmpValue;
+
+          final tmpId = nodeOrder[j];
+          nodeOrder[j] = nodeOrder[j + 1];
+          nodeOrder[j + 1] = tmpId;
+        }
+
+        actions.add({'action': 'UPDATE', 'entity_id': leftId, 'theme': 'default'});
+        actions.add({'action': 'UPDATE', 'entity_id': rightId, 'theme': 'default'});
+
+        if (j == rightBoundary - 1) {
+          actions.add({'action': 'UPDATE', 'entity_id': nodeOrder[rightBoundary], 'theme': 'locked'});
+        }
+
+        final suffix = j == rightBoundary - 1 ? '，${values[rightBoundary]} 到达末尾。' : '。';
+        steps.add({
+          'step_index': stepIndex++,
+          'narration': '第${pass + 1}轮：比较 $leftVal 和 $rightVal，${shouldSwap ? '交换' : '不交换'}$suffix',
+          'actions': actions,
+        });
+      }
+    }
+
+    steps.add({
+      'step_index': stepIndex,
+      'narration': '排序完成：$values。',
+      'actions': [
+        for (final id in nodeOrder)
+          {'action': 'UPDATE', 'entity_id': id, 'theme': 'locked'},
+      ],
+    });
+
+    final scriptJson = {
+      'version': '4.0',
+      'title': '冒泡排序演示',
+      'scene': 'array_sort',
+      'steps': steps,
+    };
+
+    return AnimationScript.fromJson(scriptJson);
   }
 
   Widget _buildEmptyState() {

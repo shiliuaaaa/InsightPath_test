@@ -165,13 +165,13 @@ class AiService {
             headers: {'Content-Type': 'application/json'},
             body: body,
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 180));
     } catch (e) {
       throw Exception('网络请求失败：$e');
     }
 
     if (kDebugMode) {
-      print('generateAnimationScript status: \${resp.statusCode}');
+      print('generateAnimationScript status: ${resp.statusCode}');
     }
 
     if (resp.statusCode != 200) {
@@ -186,6 +186,22 @@ class AiService {
 
     final scriptJson =
         (responseJson['data'] as Map<String, dynamic>)['script'] as Map<String, dynamic>;
+
+    if (kDebugMode) {
+      final steps = (scriptJson['steps'] as List<dynamic>? ?? const []);
+      final preview = steps.take(3).map((step) {
+        if (step is! Map<String, dynamic>) return <dynamic>[];
+        final actions = (step['actions'] as List<dynamic>? ?? const []);
+        return actions
+            .whereType<Map>()
+            .map((a) => (a as Map)['action'])
+            .toList();
+      }).toList();
+      print('generateAnimationScript steps: ${steps.length}');
+      print('generateAnimationScript actionPreview(first 3): $preview');
+      print('generateAnimationScript scriptJson: $scriptJson');
+    }
+
     return AnimationScript.fromJson(scriptJson);
   }
 

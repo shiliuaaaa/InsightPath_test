@@ -13,6 +13,8 @@ public interface CourseSyllabusNodeRepository extends JpaRepository<CourseSyllab
 
     List<CourseSyllabusNode> findByCourseIdAndParentIdOrderByOrderIndexAscIdAsc(Long courseId, Long parentId);
 
+    List<CourseSyllabusNode> findByParentIdOrderByOrderIndexAscIdAsc(Long parentId);
+
     long countByCourseIdAndParentId(Long courseId, Long parentId);
 
     long countByCourseIdAndParentIdIsNull(Long courseId);

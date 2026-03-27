@@ -4,18 +4,19 @@ import os
 import re
 from typing import Any, Dict, List
 
-from openai import AsyncOpenAI, OpenAI, APIConnectionError
+from openai import AsyncOpenAI, OpenAI, APIConnectionError, BadRequestError
 
 from SQL.client_db import fetch_section_config, fetch_history
 from SQL.db import get_db_conn
 
 
 # 配置日志
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("AIService")
 
-# 获取 API Key，通常从环境变量读取
+# 固定使用 DeepSeek（OpenAI 兼容接口）
 API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-BASE_URL = "https://api.deepseek.com"  # DeepSeek 的官方 API 地址
+BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
+DEFAULT_MODEL = os.getenv("LLM_MODEL", "deepseek-reasoner")
 
 
 def chat_with_deepseek_from_db(section_id: int, user_id: int, content: str) -> str:
@@ -45,7 +46,7 @@ def ask_deepseek(
     user_query: str,
     system_prompt: str = "You are a helpful assistant.",
     history: List[Dict[str, str]] = None,
-    model: str = "deepseek-chat",
+    model: str = DEFAULT_MODEL,
     temperature: float = 1.3,
 ) -> str:
     """
@@ -62,7 +63,7 @@ def ask_deepseek(
         AI 的回复内容字符串。
     """
     if not API_KEY:
-        raise RuntimeError("DEEPSEEK_API_KEY environment variable is not set.")
+        raise RuntimeError("LLM API key is not set. Please configure DEEPSEEK_API_KEY.")
 
     if history is None:
         history = []
@@ -76,7 +77,7 @@ def ask_deepseek(
             messages.append(msg)
     messages.append({"role": "user", "content": user_query})
 
-    logger.info("Sending request to DeepSeek API with model: %s", model)
+    logger.info("Sending request to LLM API with model: %s", model)
     try:
         response = client.chat.completions.create(
             model=model,
@@ -84,6 +85,9 @@ def ask_deepseek(
             temperature=temperature,
             stream=False,
         )
+    except BadRequestError as exc:
+        logger.exception("LLM model bad request")
+        raise RuntimeError(f"模型不可用（{model}），请检查模型名称或 API Key 权限") from exc
     except APIConnectionError as exc:
         logger.exception("DeepSeek API connection failed")
         raise RuntimeError("连接大模型服务失败，请稍后重试或检查网络/防火墙/代理设置") from exc
@@ -116,7 +120,7 @@ def ask_socratic_tutor(question: str) -> str:
 
 async def chat_with_global_tutor(messages: List[dict]) -> str:
     if not API_KEY:
-        raise RuntimeError("DEEPSEEK_API_KEY environment variable is not set.")
+        raise RuntimeError("LLM API key is not set. Please configure DEEPSEEK_API_KEY.")
 
     valid_roles = {"user", "assistant"}
     final_messages = [{"role": "system", "content": GLOBAL_TUTOR_PROMPT}]
@@ -133,11 +137,14 @@ async def chat_with_global_tutor(messages: List[dict]) -> str:
     client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
     try:
         response = await client.chat.completions.create(
-            model="deepseek-chat",
+            model=DEFAULT_MODEL,
             messages=final_messages,
             temperature=0.9,
             stream=False,
         )
+    except BadRequestError as exc:
+        logger.exception("LLM model bad request in global tutor")
+        raise RuntimeError(f"全局助教模型不可用（{DEFAULT_MODEL}），请检查模型名称或 API Key 权限") from exc
     except APIConnectionError as exc:
         logger.exception("DeepSeek API connection failed in global tutor")
         raise RuntimeError("连接大模型服务失败，请稍后重试") from exc
@@ -156,25 +163,97 @@ async def chat_with_global_tutor(messages: List[dict]) -> str:
 # ──────────────────────────────────────────────
 
 _ANIMATION_SYSTEM_PROMPT = r"""
-你是一个专业的算法与数据结构动画渲染引擎。你的任务是将用户的描述或代码转化为标准的 JSON 动画剧本。
-你必须严格输出 JSON 格式，不要包含任何 Markdown 标记、代码块符号（如 ```json）或解释性文字。
-JSON 结构必须严格符合以下 TypeScript 接口定义：
+你是“灵犀知径”DS&A 动画 DSL V4.0 生成引擎。请把用户需求转成“纯 JSON 动画剧本”。
+你必须只输出 JSON，不要输出任何解释、注释、Markdown 代码块。
 
-interface AnimationScript { title: string; steps: AnimationStep[]; }
-interface AnimationStep { step_index: number; narration: string; actions: Action[]; }
+顶层结构：
+{
+  "version": "4.0",
+  "title": string,
+  "scene": "array_sort" | "tree" | "graph" | "dp",
+  "steps": AnimationStep[]
+}
 
-// Action 包含以下四种，字段按需填写，不需要的字段不要出现：
-// 1. CREATE: {"action": "CREATE", "entity_id": "唯一字符串ID", "type": "DataNode"|"Pointer", "value": "显示值", "index": [逻辑X, 逻辑Y], "target_id": "指向的entity_id（仅Pointer需要）"}
-// 2. UPDATE: {"action": "UPDATE", "entity_id": "唯一ID", "theme": "active"|"highlight_red"|"locked_green", "target_id": "新指向ID（仅Pointer）", "index": [新位置（可选）]}
-// 3. SWAP:   {"action": "SWAP", "entity_id_1": "ID1", "entity_id_2": "ID2"}
-// 4. DELETE: {"action": "DELETE", "entity_id": "ID"}
+AnimationStep:
+{
+  "step_index": number,
+  "narration": string,
+  "actions": Action[]
+}
 
-约束：
-- step_index 从 0 开始，严格递增。
-- 每个 step 的 actions 列表不能为空。
-- entity_id 在整个剧本中唯一且稳定（一旦 CREATE 后沿用）。
-- DataNode 的 index 为 [列, 行]，从 [0,0] 起，列优先排列。
-- 输出纯 JSON，不含任何注释、代码块包裹或额外文字。
+Action 支持：
+1) CREATE
+{
+  "action": "CREATE",
+  "entity_id": string,
+  "type": "ArrayNode" | "DataNode" | "Pointer" | "TreeNode" | "GraphNode" | "ArrayContainer",
+  "value"?: string,
+  "index"?: [number, number],
+  "pos"?: number,
+  "target_id"?: string,
+  "theme"?: "default" | "active" | "locked" | "warning" | "highlight_red" | "locked_green"
+}
+
+2) UPDATE
+{
+  "action": "UPDATE",
+  "entity_id": string,
+  "theme"?: "default" | "active" | "locked" | "warning" | "highlight_red" | "locked_green",
+  "target_id"?: string,
+  "index"?: [number, number],
+  "value"?: string
+}
+
+3) SWAP
+{
+  "action": "SWAP",
+  "entity_id_1": string,
+  "entity_id_2": string
+}
+
+4) DELETE
+{
+  "action": "DELETE",
+  "entity_id": string
+}
+
+5) CONNECT_EDGE
+{
+  "action": "CONNECT_EDGE",
+  "source_entity_id": string,
+  "target_id": string,
+  "type": "parent_child" | "graph_edge",
+  "is_directed"?: boolean,
+  "label"?: string,
+  "theme"?: "default" | "active" | "locked"
+}
+
+6) DISCONNECT
+{
+  "action": "DISCONNECT",
+  "source_entity_id": string,
+  "target_id": string
+}
+
+7) UPDATE_CELL
+{
+  "action": "UPDATE_CELL",
+  "row": number,
+  "col": number,
+  "value": string,
+  "theme"?: "default" | "active" | "warning" | "locked",
+  "entity_id"?: string
+}
+
+关键约束：
+- 排序/一维数组场景必须设置 scene="array_sort"。
+- 在 array_sort 中，ArrayNode（或 DataNode）必须显式给出 pos（整数槽位），不要省略。
+- 在 array_sort 中，你必须在“内部状态”维护 entity_id -> current_pos 映射；每次比较/交换前先按已有 SWAP 结果更新映射，再基于 current_pos 选取比较对象。
+- 在 array_sort 中，SWAP 表示交换两个可移动数组节点的位置（不是交换 value 文本），且 SWAP 的两个节点必须是当前相邻位置。
+- 你在树/图题目中必须使用 TreeNode/GraphNode + CONNECT_EDGE 表达拓扑关系。
+- 红黑树等树结构必须显式给出父子边（type=parent_child）。
+- entity_id 全局稳定：CREATE 后后续 UPDATE/SWAP/DELETE/CONNECT 用同一 ID。
+- 输出必须是可被 JSON.parse 直接解析的纯 JSON。
 """.strip()
 
 
@@ -186,25 +265,145 @@ def _extract_json(raw: str) -> Dict[str, Any]:
     return json.loads(cleaned)
 
 
+def _validate_array_sort_swap_adjacency(script: Dict[str, Any]) -> None:
+    """array_sort 额外校验：SWAP 两节点必须是当前相邻位置。"""
+    if script.get("scene") != "array_sort":
+        return
+
+    entity_pos: Dict[str, int] = {}
+
+    for step in script.get("steps", []):
+        actions = step.get("actions", []) if isinstance(step, dict) else []
+        step_index = step.get("step_index") if isinstance(step, dict) else "?"
+
+        for action in actions:
+            if not isinstance(action, dict):
+                continue
+
+            action_type = action.get("action")
+            if action_type == "CREATE" and action.get("type") in {"DataNode", "ArrayNode"}:
+                entity_id = action.get("entity_id")
+                pos = action.get("pos")
+                if isinstance(entity_id, str) and isinstance(pos, int):
+                    entity_pos[entity_id] = pos
+
+            elif action_type == "SWAP":
+                id1 = action.get("entity_id_1")
+                id2 = action.get("entity_id_2")
+                if not isinstance(id1, str) or not isinstance(id2, str):
+                    continue
+
+                if id1 not in entity_pos or id2 not in entity_pos:
+                    raise ValueError(
+                        f"array_sort SWAP references unknown entity position at step={step_index}: {action}"
+                    )
+
+                pos1 = entity_pos[id1]
+                pos2 = entity_pos[id2]
+                if abs(pos1 - pos2) != 1:
+                    raise ValueError(
+                        f"array_sort SWAP must swap adjacent positions, got {id1}@{pos1} and {id2}@{pos2} at step={step_index}"
+                    )
+
+                entity_pos[id1], entity_pos[id2] = pos2, pos1
+
+
 def _validate_script(script: Dict[str, Any]) -> None:
-    """基础结构校验，字段不合法时抛出 ValueError。"""
+    """DSL V4.0 结构校验，字段不合法时抛出 ValueError。"""
     if not isinstance(script.get("title"), str):
         raise ValueError("script.title must be a string")
+
+    scene = script.get("scene")
+    allowed_scenes = {"array_sort", "tree", "graph", "dp"}
+    if not isinstance(scene, str) or scene not in allowed_scenes:
+        raise ValueError(f"script.scene must be one of {sorted(allowed_scenes)}")
+
     steps = script.get("steps")
     if not isinstance(steps, list) or len(steps) == 0:
         raise ValueError("script.steps must be a non-empty list")
+
+    allowed_actions = {
+        "CREATE",
+        "UPDATE",
+        "SWAP",
+        "DELETE",
+        "CONNECT_EDGE",
+        "CONNECT",      # 兼容旧输出，前端会按 CONNECT_EDGE 解析
+        "DISCONNECT",
+        "UPDATE_CELL",
+    }
+
     for step in steps:
+        if not isinstance(step, dict):
+            raise ValueError(f"step must be object, got: {step}")
+
         if not isinstance(step.get("step_index"), int):
             raise ValueError(f"step_index must be int, got: {step}")
+
         if not isinstance(step.get("narration"), str):
             raise ValueError(f"narration must be str, got: {step}")
-        if not isinstance(step.get("actions"), list) or len(step["actions"]) == 0:
+
+        actions = step.get("actions")
+        if not isinstance(actions, list) or len(actions) == 0:
             raise ValueError(f"actions must be non-empty list, got: {step}")
+
+        for action in actions:
+            if not isinstance(action, dict):
+                raise ValueError(f"action must be object, got: {action}")
+
+            action_type = action.get("action")
+            if action_type not in allowed_actions:
+                raise ValueError(f"unsupported action type: {action_type}")
+
+            if action_type == "CREATE":
+                entity_id = action.get("entity_id")
+                node_type = action.get("type")
+                if not isinstance(entity_id, str) or not entity_id.strip():
+                    raise ValueError(f"CREATE requires non-empty entity_id: {action}")
+                if not isinstance(node_type, str) or not node_type.strip():
+                    raise ValueError(f"CREATE requires type: {action}")
+
+                if scene == "array_sort" and node_type in {"DataNode", "ArrayNode"}:
+                    pos = action.get("pos")
+                    if not isinstance(pos, int):
+                        raise ValueError(
+                            f"array_sort CREATE {node_type} requires int pos: {action}"
+                        )
+
+            elif action_type == "UPDATE":
+                if not isinstance(action.get("entity_id"), str) or not action["entity_id"].strip():
+                    raise ValueError(f"UPDATE requires non-empty entity_id: {action}")
+
+            elif action_type == "SWAP":
+                if not isinstance(action.get("entity_id_1"), str) or not isinstance(action.get("entity_id_2"), str):
+                    raise ValueError(f"SWAP requires entity_id_1 and entity_id_2: {action}")
+
+            elif action_type == "DELETE":
+                if not isinstance(action.get("entity_id"), str) or not action["entity_id"].strip():
+                    raise ValueError(f"DELETE requires non-empty entity_id: {action}")
+
+            elif action_type in ("CONNECT_EDGE", "CONNECT", "DISCONNECT"):
+                source_id = action.get("source_entity_id") or action.get("source_id")
+                target_id = action.get("target_id")
+                if not isinstance(source_id, str) or not source_id.strip():
+                    raise ValueError(f"{action_type} requires source_entity_id/source_id: {action}")
+                if not isinstance(target_id, str) or not target_id.strip():
+                    raise ValueError(f"{action_type} requires target_id: {action}")
+
+            elif action_type == "UPDATE_CELL":
+                if not isinstance(action.get("row"), int):
+                    raise ValueError(f"UPDATE_CELL requires int row: {action}")
+                if not isinstance(action.get("col"), int):
+                    raise ValueError(f"UPDATE_CELL requires int col: {action}")
+                if not isinstance(action.get("value"), str):
+                    raise ValueError(f"UPDATE_CELL requires string value: {action}")
+
+    _validate_array_sort_swap_adjacency(script)
 
 
 async def generate_animation_script(
     prompt: str,
-    model: str = "deepseek-chat",
+    model: str = DEFAULT_MODEL,
     max_retries: int = 2,
 ) -> Dict[str, Any]:
     """调用 DeepSeek，强制生成符合 DSL 协议的 JSON 动画剧本。
@@ -221,7 +420,7 @@ async def generate_animation_script(
         RuntimeError: API 连接失败或多次重试后仍无法获得合法 JSON。
     """
     if not API_KEY:
-        raise RuntimeError("DEEPSEEK_API_KEY environment variable is not set.")
+        raise RuntimeError("LLM API key is not set. Please configure DEEPSEEK_API_KEY.")
 
     client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
     messages = [
@@ -230,7 +429,10 @@ async def generate_animation_script(
     ]
 
     last_error: Exception = None
-    for attempt in range(1, max_retries + 2):  # 1 次正常 + max_retries 次重试
+    last_parsed_script: Dict[str, Any] | None = None
+    total_attempts = 2
+
+    for attempt in range(1, total_attempts + 1):
         logger.info("generate_animation_script attempt %d, prompt=%r", attempt, prompt[:60])
         try:
             response = await client.chat.completions.create(
@@ -249,14 +451,38 @@ async def generate_animation_script(
 
         try:
             script = _extract_json(raw)
+            last_parsed_script = script
             _validate_script(script)
-            logger.info("Animation script generated successfully on attempt %d", attempt)
+
+            # 关键日志：便于快速判断是否真的生成了拓扑动作
+            step_count = len(script.get("steps", []))
+            action_preview = []
+            for step in script.get("steps", [])[:3]:
+                actions = step.get("actions", []) if isinstance(step, dict) else []
+                action_preview.append([a.get("action") for a in actions if isinstance(a, dict)])
+            logger.info(
+                "Animation script generated successfully on attempt %d, steps=%d, action_preview=%s",
+                attempt,
+                step_count,
+                action_preview,
+            )
+            logger.debug("Animation script full payload: %s", json.dumps(script, ensure_ascii=False))
             return script
         except (json.JSONDecodeError, ValueError, KeyError) as exc:
             last_error = exc
             logger.warning(
-                "Animation script parse/validate failed on attempt %d: %s", attempt, exc
+                "Animation script parse/validate failed on attempt %d: %s",
+                attempt,
+                exc,
             )
+
+            if attempt == total_attempts and last_parsed_script is not None:
+                logger.warning(
+                    "⚠️ 第二次重生成仍未通过严格校验，已按降级策略直接使用第二次脚本进行演示。error=%s",
+                    exc,
+                )
+                return last_parsed_script
+
             # 把失败的输出追加到对话，让模型自我修正
             messages.append({"role": "assistant", "content": raw})
             messages.append({
@@ -264,6 +490,9 @@ async def generate_animation_script(
                 "content": (
                     f"你的输出解析失败，错误：{exc}。"
                     "请重新输出，严格遵守纯 JSON 格式，不要包含任何 Markdown 符号或解释文字。"
+                    "对于 array_sort：必须在内部维护 entity_id->current_pos 映射，"
+                    "每次比较和 SWAP 前先基于历史 SWAP 更新 current_pos；"
+                    "SWAP 的两个节点必须是当前相邻位置。"
                 ),
             })
 

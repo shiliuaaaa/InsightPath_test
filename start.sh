@@ -50,8 +50,9 @@ ${BLUE}InsightPath 项目启动脚本${NC}
   help         显示此帮助信息
 
 环境变量:
-  DEEPSEEK_API_KEY   DeepSeek API Key（必须设置，否则 AI 功能不可用）
-  DB_HOST            数据库主机（默认 localhost）
+  LLM_MODEL           模型名称（默认 deepseek-reasoner）
+  DEEPSEEK_API_KEY    DeepSeek API Key
+  DB_HOST             数据库主机（默认 localhost）
   DB_NAME            数据库名（默认 mydatabase）
   DB_USER            数据库用户（默认 myuser）
   DB_PASS            数据库密码（默认 mypassword）
@@ -59,7 +60,8 @@ ${BLUE}InsightPath 项目启动脚本${NC}
 
 示例:
   ./start.sh                                        # 启动全部
-  DEEPSEEK_API_KEY=sk-xxx ./start.sh                # 指定 API Key 启动全部
+  DEEPSEEK_API_KEY=sk-xxx ./start.sh
+  LLM_MODEL=deepseek-reasoner ./start.sh
   ./start.sh backend                                # 启动后端
   ./start.sh java                                   # 仅启动 Java
   ./start.sh frontend                               # 启动前端
@@ -152,13 +154,16 @@ start_python() {
         return 1
     fi
 
-    # 检查 DEEPSEEK_API_KEY
+    # 检查 LLM API Key
     if [ -z "$DEEPSEEK_API_KEY" ]; then
         print_error "DEEPSEEK_API_KEY 未设置！AI 聊天功能将无法使用。"
         print_info "请设置环境变量后重试:"
         print_info "  export DEEPSEEK_API_KEY=sk-xxxxxxxx"
         print_info "  或在 backend/python/src/.env 文件中配置"
         return 1
+    fi
+    if [ -z "$LLM_MODEL" ]; then
+        export LLM_MODEL="deepseek-reasoner"
     fi
 
     # 自动清理占用端口的旧进程
@@ -209,6 +214,7 @@ start_python() {
     print_info "启动 Python AI 服务 (端口: $PYTHON_PORT)..."
 
     DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+    LLM_MODEL="$LLM_MODEL" \
     DB_HOST="${DB_HOST:-localhost}" \
     DB_NAME="${DB_NAME:-mydatabase}" \
     DB_USER="${DB_USER:-myuser}" \

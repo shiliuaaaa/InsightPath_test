@@ -266,6 +266,27 @@ public class CourseController {
                 .body(new ApiResponse<>(201, "创建成功", created));
     }
 
+    /** 修改大纲节点（章节/知识点/习题） */
+    @PutMapping("/{courseId}/syllabus/nodes/{nodeId}")
+    public ApiResponse<SyllabusNodeResponse> updateSyllabusNode(@PathVariable Long courseId,
+                                                                @PathVariable Long nodeId,
+                                                                @RequestBody UpdateSyllabusNodeRequest body,
+                                                                HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        SyllabusNodeResponse updated = courseSyllabusService.updateNode(courseId, nodeId, body, user);
+        return ApiResponse.success("更新成功", updated);
+    }
+
+    /** 删除大纲节点（章节/知识点/习题） */
+    @DeleteMapping("/{courseId}/syllabus/nodes/{nodeId}")
+    public ApiResponse<Void> deleteSyllabusNode(@PathVariable Long courseId,
+                                                @PathVariable Long nodeId,
+                                                HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        courseSyllabusService.deleteNode(courseId, nodeId, user);
+        return ApiResponse.success("删除成功", null);
+    }
+
     // ==================== 学生管理 ====================
 
     /** 获取课程成员列表 */
