@@ -222,3 +222,27 @@ CREATE TABLE IF NOT EXISTS test_connection (
 -- 连通性示例数据（可重复执行）
 INSERT INTO test_connection (info) VALUES ('Database connected successfully!');
 
+--新增：
+-- 扩展现有 course_files 表，添加解析状态字段
+ALTER TABLE course_files ADD COLUMN IF NOT EXISTS parsed_status VARCHAR(20) DEFAULT 'NOT_PARSED';
+-- 可选值: 'NOT_PARSED', 'PARSING', 'PARSED', 'FAILED'
+
+-- 创建文档文本块表（用于存储OCR结果和向量）
+CREATE TABLE IF NOT EXISTS document_text_chunks (
+    id BIGSERIAL PRIMARY KEY,
+    document_id BIGINT NOT NULL REFERENCES course_files(id) ON DELETE CASCADE, -- 关联course_files表
+    page_number INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    chunk_type VARCHAR(50) DEFAULT 'paragraph', -- 'title', 'paragraph', 'formula', 'list', 'table'
+    normalized_coords DOUBLE PRECISION[4], -- [x0, y0, x1, y1] 归一化坐标
+    embedding_vector vector(1024), -- 使用pgvector存储向量
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建全文检索索引（使用pg_jieba）
+CREATE INDEX IF NOT EXISTS idx_document_chunks_content_gin ON document_text_chunks USING GIN(to_tsvector('jiebacfg', content));
+-- 创建向量相似度索引
+CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON document_text_chunks USING ivfflat (embedding_vector vector_cosine_ops) WITH (lists = 100);
+
+-- 创建复合索引优化查询
+CREATE INDEX IF NOT EXISTS idx_document_chunks_doc_page ON document_text_chunks(document_id, page_number);

@@ -107,7 +107,15 @@ start_java() {
     cd "$JAVA_DIR"
     
     # 设置 Java 17
-    export JAVA_HOME=/opt/homebrew/Cellar/openjdk@17/17.0.18/libexec/openjdk.jdk/Contents/Home
+    # 自动检测 Java 17 的安装路径（适用于 Ubuntu）
+    if [ -d "/usr/lib/jvm/java-17-openjdk-amd64" ]; then
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+    elif [ -d "/usr/lib/jvm/java-17-openjdk" ]; then
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+    else
+    # 回退：通过 which java 查找
+        export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    fi
     export PATH="$JAVA_HOME/bin:$PATH"
     
     print_info "Java 版本:"

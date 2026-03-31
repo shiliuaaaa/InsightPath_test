@@ -21,4 +21,8 @@ public interface CourseFileRepository extends JpaRepository<CourseFile, Long> {
 
     @Query("SELECT COUNT(f) FROM CourseFile f WHERE f.sectionId = :sectionId AND f.type = 'FILE'")
     long countFilesBySectionId(@Param("sectionId") Long sectionId);
+
+    //新增
+    @Query("SELECT COUNT(cf) > 0 FROM CourseFile cf JOIN CourseSection cs ON cf.sectionId = cs.id JOIN Course c ON cs.courseId = c.id WHERE cf.id = :fileId AND c.teacherId = :teacherId")
+    boolean existsByIdAndSectionCourseTeacherId(@Param("fileId") Long fileId, @Param("teacherId") Long teacherId);
 }

@@ -179,3 +179,66 @@ async def generate_animation(request: AnimationGenerateRequest):
     except Exception as e:
         logger.exception("Error generating animation script")
         raise HTTPException(status_code=500, detail="internal error") from e
+
+# 新增
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from schemas.model import (
+    DocumentParseRequest, DocumentParseResponse, 
+    RagSearchRequest, RagSearchResponse
+)
+from rag_service import process_uploaded_document, rag_semantic_search
+
+@router.post("/api/v1/rag/documents/process")
+async def process_document_endpoint(request: DocumentParseRequest, background_tasks: BackgroundTasks):
+    """异步处理文档"""
+    logger.info(f"Processing document {request.document_id} from {request.file_url}")
+    
+    # 立即返回开始处理的状态
+    background_tasks.add_task(process_uploaded_document, request.document_id, request.file_url)
+    
+    return {
+        "code": 200,
+        "message": "Document processing started",
+        "data": {
+            "document_id": request.document_id,
+            "status": "processing"
+        }
+    }
+
+@router.post("/api/v1/rag/search", response_model=RagSearchResponse)
+async def rag_search_endpoint(request: RagSearchRequest):
+    """RAG语义搜索"""
+    logger.info(f"RAG search for document {request.document_id}, query: {request.query}")
+    
+    try:
+        result = rag_semantic_search(request.query, request.document_id, request.top_k)
+        
+        return RagSearchResponse(
+            answer=result['answer'],
+            references=[SearchReference(**ref) for ref in result['references']]
+        )
+    except Exception as e:
+        logger.error(f"RAG search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@router.get("/api/v1/rag/chunks/{chunk_id}")
+async def get_chunk_detail(chunk_id: int):
+    """获取文本块详情"""
+    conn = None
+    try:
+        conn = get_db_conn()
+        chunk = get_chunk_by_id(conn, chunk_id)
+        if not chunk:
+            raise HTTPException(status_code=404, detail="Chunk not found")
+        
+        return {
+            "code": 200,
+            "message": "success",
+            "data": chunk
+        }
+    except Exception as e:
+        logger.error(f"Get chunk detail failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
