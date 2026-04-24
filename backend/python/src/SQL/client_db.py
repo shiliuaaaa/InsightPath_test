@@ -1,7 +1,4 @@
-import os
 from typing import Dict, List
-
-import psycopg2
 
 def fetch_section_config(conn, section_id: int) -> Dict[str, str] | None:
     with conn.cursor() as cur:

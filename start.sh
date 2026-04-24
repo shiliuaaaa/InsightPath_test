@@ -50,8 +50,9 @@ ${BLUE}InsightPath 项目启动脚本${NC}
   help         显示此帮助信息
 
 环境变量:
-  LLM_MODEL           模型名称（默认 deepseek-reasoner）
-  DEEPSEEK_API_KEY    DeepSeek API Key
+  LLM_MODEL           模型名称（默认 qwen-max）
+  LLM_API_KEY         大模型 API Key（兼容阿里云百炼/千问）
+  LLM_BASE_URL        OpenAI 兼容接口地址（默认阿里云百炼）
   DB_HOST             数据库主机（默认 localhost）
   DB_NAME            数据库名（默认 mydatabase）
   DB_USER            数据库用户（默认 myuser）
@@ -60,8 +61,8 @@ ${BLUE}InsightPath 项目启动脚本${NC}
 
 示例:
   ./start.sh                                        # 启动全部
-  DEEPSEEK_API_KEY=sk-xxx ./start.sh
-  LLM_MODEL=deepseek-reasoner ./start.sh
+  LLM_API_KEY=sk-xxx ./start.sh
+  LLM_MODEL=qwen-max ./start.sh
   ./start.sh backend                                # 启动后端
   ./start.sh java                                   # 仅启动 Java
   ./start.sh frontend                               # 启动前端
@@ -155,15 +156,18 @@ start_python() {
     fi
 
     # 检查 LLM API Key
-    if [ -z "$DEEPSEEK_API_KEY" ]; then
-        print_error "DEEPSEEK_API_KEY 未设置！AI 聊天功能将无法使用。"
+    if [ -z "$LLM_API_KEY" ] && [ -z "$DASHSCOPE_API_KEY" ] && [ -z "$DEEPSEEK_API_KEY" ]; then
+        print_error "LLM_API_KEY 未设置！AI 聊天功能将无法使用。"
         print_info "请设置环境变量后重试:"
-        print_info "  export DEEPSEEK_API_KEY=sk-xxxxxxxx"
+        print_info "  export LLM_API_KEY=sk-xxxxxxxx"
         print_info "  或在 backend/python/src/.env 文件中配置"
         return 1
     fi
     if [ -z "$LLM_MODEL" ]; then
-        export LLM_MODEL="deepseek-reasoner"
+        export LLM_MODEL="qwen-max"
+    fi
+    if [ -z "$LLM_BASE_URL" ]; then
+        export LLM_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
     fi
 
     # 自动清理占用端口的旧进程
@@ -184,9 +188,14 @@ start_python() {
     
     print_info "Python 版本: $(python3 --version)"
     
-    # 检查虚拟环境，不存在则创建
-    if [ ! -d "venv" ]; then
-        print_warning "虚拟环境不存在，正在创建..."
+    # 检查虚拟环境，不存在或损坏则重建
+    if [ ! -d "venv" ] || [ ! -f "venv/pyvenv.cfg" ]; then
+        if [ -d "venv" ]; then
+            print_warning "检测到损坏的虚拟环境，正在重建..."
+            rm -rf "venv"
+        else
+            print_warning "虚拟环境不存在，正在创建..."
+        fi
         python3 -m venv venv || {
             print_error "虚拟环境创建失败"
             return 1
@@ -194,32 +203,57 @@ start_python() {
         print_success "虚拟环境已创建"
     fi
 
-    VENV_PIP="$PYTHON_DIR/venv/bin/pip"
-    VENV_UVICORN="$PYTHON_DIR/venv/bin/uvicorn"
+    # 兼容不同 Python 版本/venv 结构（有些环境只有 python3.13 / pip3.13）
+    VENV_PYTHON=""
+    for candidate in "$PYTHON_DIR/venv/bin/python" "$PYTHON_DIR/venv/bin/python3" "$PYTHON_DIR/venv/bin/python3.13"; do
+        if [ -x "$candidate" ]; then
+            VENV_PYTHON="$candidate"
+            break
+        fi
+    done
+
+    VENV_PIP=""
+    for candidate in "$PYTHON_DIR/venv/bin/pip" "$PYTHON_DIR/venv/bin/pip3"; do
+        if [ -x "$candidate" ]; then
+            VENV_PIP="$candidate"
+            break
+        fi
+    done
+
+    if [ -z "$VENV_PIP" ] && [ -n "$VENV_PYTHON" ]; then
+        VENV_PIP="$VENV_PYTHON -m pip"
+    fi
+
+    if [ -z "$VENV_PYTHON" ]; then
+        print_error "虚拟环境 Python 不存在，请删除 $PYTHON_DIR/venv 后重试"
+        return 1
+    fi
     
+    # 先补齐基础打包工具，避免 Python 3.13 新环境缺少 setuptools/wheel
+    print_info "初始化 Python 打包工具..."
+    "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1 || true
+    eval "$VENV_PIP install -q --upgrade pip setuptools wheel" || {
+        print_warning "基础打包工具升级失败，继续尝试安装业务依赖..."
+    }
+
     # 安装依赖
     if [ -f "requirements.txt" ]; then
         print_info "检查并安装依赖..."
-        "$VENV_PIP" install -q -r requirements.txt || {
-            print_warning "依赖安装可能不完整，继续启动..."
+        eval "$VENV_PIP install -q -r requirements.txt" || {
+            print_warning "src/requirements.txt 安装失败，继续尝试补充依赖..."
         }
     fi
 
-    # 确保 uvicorn 已安装
-    if [ ! -f "$VENV_UVICORN" ]; then
-        print_info "安装 uvicorn..."
-        "$VENV_PIP" install -q uvicorn fastapi
-    fi
-    
     print_info "启动 Python AI 服务 (端口: $PYTHON_PORT)..."
 
-    DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+    LLM_API_KEY="${LLM_API_KEY:-${DASHSCOPE_API_KEY:-${DEEPSEEK_API_KEY:-}}}" \
     LLM_MODEL="$LLM_MODEL" \
+    LLM_BASE_URL="$LLM_BASE_URL" \
     DB_HOST="${DB_HOST:-localhost}" \
     DB_NAME="${DB_NAME:-mydatabase}" \
     DB_USER="${DB_USER:-myuser}" \
     DB_PASS="${DB_PASS:-mypassword}" \
-    nohup "$VENV_UVICORN" main:app \
+    nohup "$VENV_PYTHON" -m uvicorn main:app \
         --host 0.0.0.0 \
         --port "$PYTHON_PORT" \
         > /tmp/python_ai.log 2>&1 &

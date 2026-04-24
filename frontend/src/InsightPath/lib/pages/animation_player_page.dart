@@ -26,7 +26,7 @@ class _AnimationPlayerPageState extends State<AnimationPlayerPage> {
   AnimationScript? currentScript;
 
   // 一键切换：false=默认冒泡排序，true=调用 AI 生成
-  static const bool _useAiGeneratedAnimation = false;
+  static const bool _useAiGeneratedAnimation = true;
 
   final AiService _aiService = AiService();
 

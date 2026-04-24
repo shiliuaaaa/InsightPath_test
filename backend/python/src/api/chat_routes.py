@@ -11,8 +11,9 @@ from schemas.model import (
     SocraticChatRequest,
 )
 from client.deepseek_client import (
+    DEFAULT_MODEL,
     ask_socratic_tutor,
-    chat_with_deepseek_from_db,
+    chat_with_llm_from_db,
     chat_with_global_tutor,
     generate_animation_script,
 )
@@ -27,7 +28,7 @@ def chat(request: ChatRequest):
         "Received chat request: section_id=%s, user_id=%s", request.section_id, request.user_id
     )
     try:
-        answer = chat_with_deepseek_from_db(
+        answer = chat_with_llm_from_db(
             section_id=request.section_id,
             user_id=request.user_id,
             content=request.content,
@@ -38,7 +39,7 @@ def chat(request: ChatRequest):
             "data": {
                 "reply": answer,
                 "tokens_used": None,
-                "model_version": "deepseek-reasoner",
+                "model_version": DEFAULT_MODEL,
             },
         }
     except ValueError as e:
@@ -64,7 +65,7 @@ def socratic_chat(request: SocraticChatRequest):
             "message": "success",
             "data": {
                 "reply": answer,
-                "model_version": "deepseek-reasoner",
+                "model_version": DEFAULT_MODEL,
             },
         }
     except RuntimeError as e:

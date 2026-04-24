@@ -1,1 +1,1 @@
-from .deepseek_client import ask_deepseek
+from .deepseek_client import ask_llm

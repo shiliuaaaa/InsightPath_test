@@ -13,13 +13,17 @@ from SQL.db import get_db_conn
 # 配置日志
 logger = logging.getLogger("AIService")
 
-# 固定使用 DeepSeek（OpenAI 兼容接口）
-API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
-DEFAULT_MODEL = os.getenv("LLM_MODEL", "deepseek-reasoner")
+# 通用 OpenAI 兼容接口配置（默认切到阿里云百炼 / 千问）
+API_KEY = (
+    os.getenv("LLM_API_KEY")
+    or os.getenv("DASHSCOPE_API_KEY")
+    or os.getenv("DEEPSEEK_API_KEY", "")
+)
+BASE_URL = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+DEFAULT_MODEL = os.getenv("LLM_MODEL", "qwen-max")
 
 
-def chat_with_deepseek_from_db(section_id: int, user_id: int, content: str) -> str:
+def chat_with_llm_from_db(section_id: int, user_id: int, content: str) -> str:
     """全流程：连接数据库 -> 取配置与历史 -> 调用大模型，返回回复文本。
 
     发生业务错误时抛出异常（例如 section 不存在）。
@@ -32,7 +36,7 @@ def chat_with_deepseek_from_db(section_id: int, user_id: int, content: str) -> s
             raise ValueError("section_id not found")
 
         history = fetch_history(conn, section_id, user_id, limit=10)
-        return ask_deepseek(
+        return ask_llm(
             user_query=content,
             system_prompt=section_cfg.get("system_prompt") or "You are a helpful assistant.",
             history=history,
@@ -42,7 +46,7 @@ def chat_with_deepseek_from_db(section_id: int, user_id: int, content: str) -> s
             conn.close()
 
 
-def ask_deepseek(
+def ask_llm(
     user_query: str,
     system_prompt: str = "You are a helpful assistant.",
     history: List[Dict[str, str]] = None,
@@ -50,7 +54,7 @@ def ask_deepseek(
     temperature: float = 1.3,
 ) -> str:
     """
-    向 DeepSeek 发起提问并获取回复。
+    向当前配置的大模型发起提问并获取回复。
 
     Args:
         user_query: 用户当前的提问内容。
@@ -63,7 +67,7 @@ def ask_deepseek(
         AI 的回复内容字符串。
     """
     if not API_KEY:
-        raise RuntimeError("LLM API key is not set. Please configure DEEPSEEK_API_KEY.")
+        raise RuntimeError("LLM API key is not set. Please configure LLM_API_KEY.")
 
     if history is None:
         history = []
@@ -89,7 +93,7 @@ def ask_deepseek(
         logger.exception("LLM model bad request")
         raise RuntimeError(f"模型不可用（{model}），请检查模型名称或 API Key 权限") from exc
     except APIConnectionError as exc:
-        logger.exception("DeepSeek API connection failed")
+        logger.exception("LLM API connection failed")
         raise RuntimeError("连接大模型服务失败，请稍后重试或检查网络/防火墙/代理设置") from exc
 
     return response.choices[0].message.content
@@ -110,7 +114,7 @@ GLOBAL_TUTOR_PROMPT = """你现在是“灵犀知径”教育平台的全局 AI 
 
 
 def ask_socratic_tutor(question: str) -> str:
-    return ask_deepseek(
+    return ask_llm(
         user_query=question,
         system_prompt=_SOCRATIC_SYSTEM_PROMPT,
         history=[],
@@ -120,7 +124,7 @@ def ask_socratic_tutor(question: str) -> str:
 
 async def chat_with_global_tutor(messages: List[dict]) -> str:
     if not API_KEY:
-        raise RuntimeError("LLM API key is not set. Please configure DEEPSEEK_API_KEY.")
+        raise RuntimeError("LLM API key is not set. Please configure LLM_API_KEY.")
 
     valid_roles = {"user", "assistant"}
     final_messages = [{"role": "system", "content": GLOBAL_TUTOR_PROMPT}]
@@ -146,10 +150,10 @@ async def chat_with_global_tutor(messages: List[dict]) -> str:
         logger.exception("LLM model bad request in global tutor")
         raise RuntimeError(f"全局助教模型不可用（{DEFAULT_MODEL}），请检查模型名称或 API Key 权限") from exc
     except APIConnectionError as exc:
-        logger.exception("DeepSeek API connection failed in global tutor")
+        logger.exception("LLM API connection failed in global tutor")
         raise RuntimeError("连接大模型服务失败，请稍后重试") from exc
     except Exception as exc:
-        logger.exception("DeepSeek API error in global tutor")
+        logger.exception("LLM API error in global tutor")
         raise RuntimeError("全局助教服务暂不可用") from exc
 
     reply = response.choices[0].message.content
@@ -163,10 +167,18 @@ async def chat_with_global_tutor(messages: List[dict]) -> str:
 # ──────────────────────────────────────────────
 
 _ANIMATION_SYSTEM_PROMPT = r"""
-你是“灵犀知径”DS&A 动画 DSL V4.0 生成引擎。请把用户需求转成“纯 JSON 动画剧本”。
-你必须只输出 JSON，不要输出任何解释、注释、Markdown 代码块。
+你是“灵犀知径”DS&A 动画 DSL V4.0 渲染指令编译器。
+你的唯一任务：把用户描述的算法过程，严格编译为可执行的纯 JSON 动画剧本。
+你绝对不能输出任何解释文字、注释、Markdown 包裹符或额外说明；你只能输出一个可被 JSON.parse 直接解析的 JSON 对象。
 
-顶层结构：
+【核心机制：状态草稿本 (thought_process)】
+大语言模型没有隐式记忆。为了最大限度保证逻辑正确，你必须在每个 AnimationStep 中新增一个 "thought_process" 字段。
+在生成 actions 前，你必须先在这个字段里写下：
+1. 当前有哪些变量或指针，它们分别指向哪里；
+2. 当前节点的逻辑槽位索引（pos，必须是 0、1、2 等整数）是多少？当前的 ID -> pos 映射关系是什么？
+3. 下一步准备执行什么，以及执行后位置如何变化。
+
+【顶层结构】
 {
   "version": "4.0",
   "title": string,
@@ -174,14 +186,25 @@ _ANIMATION_SYSTEM_PROMPT = r"""
   "steps": AnimationStep[]
 }
 
-AnimationStep:
+【AnimationStep 结构】
 {
   "step_index": number,
+  "thought_process": string,
   "narration": string,
   "actions": Action[]
 }
 
-Action 支持：
+【极其重要的结构约束】
+- steps 必须是 JSON 数组，不能为空。
+- 每个 step 必须是 JSON 对象。
+- 每个 step 必须且只能包含 step_index、thought_process、narration、actions 等步骤级字段。
+- actions 必须是 JSON 数组（[]），不能为空。
+- actions 中的每一项都必须是一个 JSON 对象。
+- 所有动作字段，例如 action、entity_id、type、value、pos、target_id、entity_id_1、entity_id_2、source_entity_id，必须写在 actions 数组的元素对象中。
+- 严禁在 AnimationStep 顶层直接出现 action、entity_id、type、value、pos、target_id、entity_id_1、entity_id_2、source_entity_id 等动作字段。
+- 严禁把 actions 写成字符串、数字、null、对象，或类似 ":[{" 这样的损坏片段。
+
+【Action 支持】
 1) CREATE
 {
   "action": "CREATE",
@@ -245,15 +268,71 @@ Action 支持：
   "entity_id"?: string
 }
 
-关键约束：
+【绝对约束】
 - 排序/一维数组场景必须设置 scene="array_sort"。
-- 在 array_sort 中，ArrayNode（或 DataNode）必须显式给出 pos（整数槽位），不要省略。
-- 在 array_sort 中，你必须在“内部状态”维护 entity_id -> current_pos 映射；每次比较/交换前先按已有 SWAP 结果更新映射，再基于 current_pos 选取比较对象。
-- 在 array_sort 中，SWAP 表示交换两个可移动数组节点的位置（不是交换 value 文本），且 SWAP 的两个节点必须是当前相邻位置。
+- 在 array_sort 中，ArrayNode（或 DataNode）必须显式给出 pos（整数槽位）。
+- 注意：你只需输出整数索引 pos，具体的屏幕坐标转换和布局居中由前端渲染引擎自动处理，你绝对不要输出任何像素值。
+- 在 array_sort 中，你必须显式维护 entity_id -> current_pos 映射，并在 thought_process 中写出来；每次比较/交换前，先基于已有 SWAP 历史更新 current_pos，再决定本步操作对象。
+- 在 array_sort 中，SWAP 表示交换两个数组节点的位置，而不是交换 value 文本；SWAP 的两个节点必须是当前物理位置完全相邻的两个实体。
 - 你在树/图题目中必须使用 TreeNode/GraphNode + CONNECT_EDGE 表达拓扑关系。
 - 红黑树等树结构必须显式给出父子边（type=parent_child）。
-- entity_id 全局稳定：CREATE 后后续 UPDATE/SWAP/DELETE/CONNECT 用同一 ID。
-- 输出必须是可被 JSON.parse 直接解析的纯 JSON。
+- entity_id 全局稳定：CREATE 后，后续 UPDATE/SWAP/DELETE/CONNECT 必须继续使用同一 ID。
+- 如果某一步没有合法动作，不要输出该步骤；绝对不要输出空的 actions。
+- 输出必须是严格合法的 JSON，不能包含残缺括号、截断字符串或半个数组。
+
+【错误示例：以下写法绝对禁止】
+{
+  "step_index": 1,
+  "thought_process": "...",
+  "narration": "...",
+  "actions": ":[{",
+  "action": "CREATE",
+  "entity_id": "node_0",
+  "type": "DataNode",
+  "pos": 0
+}
+上面这种写法是错误的，因为 action/entity_id/type/pos 被错误地写到了 step 顶层，而且 actions 不是数组。
+
+【黄金示例：输入“请演示冒泡排序交换 [3, 1]”时，输出应类似】
+{
+  "version": "4.0",
+  "title": "冒泡排序",
+  "scene": "array_sort",
+  "steps": [
+    {
+      "step_index": 1,
+      "thought_process": "初始化。创建 node_0 在 pos=0（值为3），创建 node_1 在 pos=1（值为1）。当前 ID -> pos 映射：node_0 -> 0, node_1 -> 1。",
+      "narration": "首先，我们初始化待排序的数组。",
+      "actions": [
+        {"action": "CREATE", "entity_id": "node_0", "type": "DataNode", "value": "3", "pos": 0},
+        {"action": "CREATE", "entity_id": "node_1", "type": "DataNode", "value": "1", "pos": 1}
+      ]
+    },
+    {
+      "step_index": 2,
+      "thought_process": "比较 pos=0 的 node_0 和 pos=1 的 node_1。当前 ID -> pos 映射：node_0 -> 0, node_1 -> 1。因为 3 > 1，发生相邻交换。交换后 node_0 -> 1，node_1 -> 0。",
+      "narration": "比较相邻的两个元素，3 大于 1，我们需要交换它们的位置。",
+      "actions": [
+        {"action": "UPDATE", "entity_id": "node_0", "theme": "highlight_red"},
+        {"action": "UPDATE", "entity_id": "node_1", "theme": "highlight_red"},
+        {"action": "SWAP", "entity_id_1": "node_0", "entity_id_2": "node_1"},
+        {"action": "UPDATE", "entity_id": "node_0", "theme": "default"},
+        {"action": "UPDATE", "entity_id": "node_1", "theme": "default"}
+      ]
+    }
+  ]
+}
+
+【输出前自检】
+在最终输出前，你必须逐项自检：
+1. 顶层是否是单个 JSON 对象，而不是 Markdown。
+2. steps 是否是非空数组。
+3. 每个 step 是否都包含 step_index、thought_process、narration、actions。
+4. 每个 step 的 actions 是否都是非空数组。
+5. 是否把任何动作字段错误地写到了 step 顶层。
+6. array_sort 中每个 DataNode/ArrayNode 是否都带 int 类型的 pos。
+7. 是否输出了任何像素值、坐标字符串、残缺 JSON 片段。
+只有全部满足，才允许输出。
 """.strip()
 
 
@@ -420,7 +499,7 @@ async def generate_animation_script(
         RuntimeError: API 连接失败或多次重试后仍无法获得合法 JSON。
     """
     if not API_KEY:
-        raise RuntimeError("LLM API key is not set. Please configure DEEPSEEK_API_KEY.")
+        raise RuntimeError("LLM API key is not set. Please configure LLM_API_KEY.")
 
     client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
     messages = [

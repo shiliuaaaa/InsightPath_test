@@ -165,7 +165,7 @@ class AiService {
             headers: {'Content-Type': 'application/json'},
             body: body,
           )
-          .timeout(const Duration(seconds: 180));
+          .timeout(const Duration(seconds: 300));
     } catch (e) {
       throw Exception('网络请求失败：$e');
     }
