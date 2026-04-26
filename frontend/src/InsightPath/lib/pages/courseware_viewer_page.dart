@@ -15,6 +15,8 @@ import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../utils/app_theme.dart';
 import '../widgets/animation_canvas.dart';
+import 'demo/pdf_rag_highlight_demo_page.dart';
+import 'demo/student_step_guide_demo.dart';
 import 'demo/teacher_insight_mapper_demo.dart';
 import 'global_ai_tutor_page.dart';
 
@@ -26,6 +28,8 @@ class CoursewareViewerPage extends StatefulWidget {
   final String? pageContent;
   final int? courseId;
   final int? sectionId;
+  final bool useNormalQuizFlow;
+  final bool useRealAiForRagDemo;
 
   const CoursewareViewerPage({
     super.key,
@@ -36,6 +40,8 @@ class CoursewareViewerPage extends StatefulWidget {
     this.pageContent,
     this.courseId,
     this.sectionId,
+    this.useNormalQuizFlow = true,
+    this.useRealAiForRagDemo = false,
   });
 
   @override
@@ -737,6 +743,31 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          if (!widget.useNormalQuizFlow)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StudentStepGuideDemo(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.edit_note_rounded, size: 17),
+                label: const Text('做题', style: TextStyle(fontSize: 12)),
+              ),
+            ),
           if (_isTeacher)
             IconButton(
               tooltip: '知径演示入口',
@@ -813,6 +844,10 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                     builder: (_) => _CourseAiQuickPage(
                       courseId: widget.courseId!,
                       sourceTitle: widget.fileName,
+                      pdfUrl: widget.pdfUrl != null
+                          ? _buildUrl(widget.pdfUrl!)
+                          : null,
+                      useRealAiForRagDemo: widget.useRealAiForRagDemo,
                     ),
                   ),
                 );
@@ -1038,16 +1073,27 @@ class _ImageViewerState extends State<_ImageViewer> {
 }
 
 class _CourseAiQuickPage extends StatefulWidget {
-  const _CourseAiQuickPage({required this.courseId, required this.sourceTitle});
+  const _CourseAiQuickPage({
+    required this.courseId,
+    required this.sourceTitle,
+    required this.useRealAiForRagDemo,
+    this.pdfUrl,
+  });
 
   final int courseId;
   final String sourceTitle;
+  final bool useRealAiForRagDemo;
+  final String? pdfUrl;
 
   @override
   State<_CourseAiQuickPage> createState() => _CourseAiQuickPageState();
 }
 
 class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
+  static const String _ragQuestion = '线性表插入元素的时间复杂度是多少？怎么理解？';
+  static const int _ragTargetPage = 22;
+  static List<Rect> _demoRects = [];
+
   final AiService _aiService = AiService();
   final TextEditingController _controller = TextEditingController();
   final List<AiMessage> _messages = [];
@@ -1156,6 +1202,25 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
       _attachedFileContext = null;
     });
 
+    if (!widget.useRealAiForRagDemo) {
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      if (!mounted) return;
+      const demoReply =
+          '顺序表在指定位置插入元素的时间复杂度通常是 O(n)。因为若插入位置不在表尾，就需要把插入位置及其后的元素整体顺序后移，最坏情况下需要移动接近 n 个元素。';
+      setState(() {
+        _sending = false;
+        _messages.add(
+          AiMessage(
+            id: DateTime.now().millisecondsSinceEpoch + 1,
+            role: 'ASSISTANT',
+            content: demoReply,
+            createdAt: DateTime.now(),
+          ),
+        );
+      });
+      return;
+    }
+
     await _ensureSession();
     String? reply;
     if (_sessionId != null) {
@@ -1182,6 +1247,25 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
     });
   }
 
+  Future<void> _openRagCitation() async {
+    final pdfUrl = widget.pdfUrl;
+    if (pdfUrl == null) return;
+    final result = await Navigator.push<List<Rect>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PdfRagHighlightDemoPage(
+          pdfUrl: pdfUrl,
+          targetPage: _ragTargetPage,
+          sourceTitle: widget.sourceTitle,
+          initialRects: _demoRects,
+        ),
+      ),
+    );
+    if (result != null) {
+      setState(() => _demoRects = result);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1192,9 +1276,27 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            child: Text(
-              '当前资料：${widget.sourceTitle}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.hintColor),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '当前资料：${widget.sourceTitle}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.hintColor,
+                  ),
+                ),
+                if (!widget.useRealAiForRagDemo) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '演示问题：$_ragQuestion',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.bodyColor,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           if (_attachedFileName != null)
@@ -1267,11 +1369,33 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
                       color: isUser ? const Color(0xFF1A73E8) : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      m.content,
-                      style: TextStyle(
-                        color: isUser ? Colors.white : const Color(0xFF1F2937),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          m.content,
+                          style: TextStyle(
+                            color: isUser
+                                ? Colors.white
+                                : const Color(0xFF1F2937),
+                          ),
+                        ),
+                        if (!isUser && !widget.useRealAiForRagDemo) ...[
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: _openRagCitation,
+                            child: const Text(
+                              '──────── 相关内容：第二章 线性表 / 第22页',
+                              style: TextStyle(
+                                color: AppTheme.primary,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 );

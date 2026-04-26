@@ -10,7 +10,7 @@ class TeacherInsightMapperDemo extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: const Text('创建习题 · 知径预设'),
+        title: const Text('创建习题'),
         actions: [
           TextButton.icon(
             onPressed: () => Navigator.maybePop(context),
@@ -92,11 +92,15 @@ class _QuestionCard extends StatelessWidget {
               _Tag('for 起点'),
               _Tag('终止条件'),
               _Tag('数据覆盖'),
-              _Tag('DSL 联动'),
+              _Tag('反馈引导'),
             ],
           ),
           const SizedBox(height: 18),
-          _Tip('录屏重点：让评委看到老师不是写死答案，而是在关键代码行上预设“错误模式 → 启发话术 → 动画片段”。'),
+          const _Input(
+            '教学目标',
+            '引导学生理解顺序表插入时必须从表尾倒序移动元素，避免前项覆盖后项；同时明确循环边界应停在 j > i。',
+            lines: 3,
+          ),
         ],
       ),
     );
@@ -109,17 +113,17 @@ class _MapperCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Shell(
-      title: '知径编辑器 Insight-Mapper',
+      title: '知径编辑器',
       sub: '教师预设：逻辑锚点、错误模式、启发链',
       icon: Icons.account_tree_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _Title('1. 代码槽位锚点 Code Anchors'),
+          const _Title('1. 代码槽位锚点'),
           const SizedBox(height: 10),
           _codeBox(),
           const SizedBox(height: 18),
-          const _Title('2. 错误模式匹配器 Error Pattern Matcher'),
+          const _Title('2. 错误模式匹配器', actions: ['分叉编辑', '保存']),
           const SizedBox(height: 10),
           const Row(
             children: [
@@ -152,13 +156,12 @@ class _MapperCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          const _Title('3. 启发引导链 Heuristic Chain'),
+          const _Title('3. 启发引导链', actions: ['编辑', '保存']),
           const SizedBox(height: 10),
           const _Hook(
             'A1',
             '学生回答包含 “j=i / 从 i 开始”',
             '如果从 j=i 开始向后赋值，想一想索引 i+1 原有的数据会发生什么？',
-            '覆盖预警：30 覆盖 40，红色震动',
             AppTheme.errorColor,
           ),
           const SizedBox(height: 10),
@@ -166,7 +169,6 @@ class _MapperCard extends StatelessWidget {
             'C1',
             '学生回答包含 “length / 最后面开始”',
             '正确。从表尾开始移动可以保护数据。那么，循环应该在什么时候停止？',
-            '倒序移位：50→5、40→4、30→3，索引2发光',
             AppTheme.successColor,
           ),
           const SizedBox(height: 10),
@@ -174,8 +176,15 @@ class _MapperCard extends StatelessWidget {
             'A2',
             '学生选择 “j >= i”',
             '注意，当 j=i 时，执行的是 data[i] = data[i-1]。这会改变我们要插入的位置吗？',
-            '边界警告：插入槽被覆盖，黄色闪烁',
             AppTheme.accent,
+          ),
+          const SizedBox(height: 18),
+          const _Title('4. AI 答疑 Prompt', actions: ['编辑', '保存']),
+          const SizedBox(height: 10),
+          const _Input(
+            '步进式启发 Prompt',
+            '你是“灵犀知径”的启发式助教。请不要直接给出完整答案，而是根据教师预设的知径分叉逐步追问：\n1. 先判断学生对循环起点的理解；若回答 j=i 或从前往后移动，指出 data[2] 会覆盖 data[3]，并要求学生观察 40 是否还存在。\n2. 当学生修正为 j=length 后，追问循环条件应为 j>i 还是 j>=i。\n3. 若学生选择 j>=i，提示 data[i]=data[i-1] 会破坏插入槽；若选择 j>i，再引导其将 99 放入索引 2。\n4. 全程使用苏格拉底式提示，结合学生当前作答逐步给出反馈。',
+            lines: 8,
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -400,8 +409,8 @@ class _Pattern extends StatelessWidget {
 }
 
 class _Hook extends StatelessWidget {
-  const _Hook(this.step, this.trigger, this.hint, this.dsl, this.color);
-  final String step, trigger, hint, dsl;
+  const _Hook(this.step, this.trigger, this.hint, this.color);
+  final String step, trigger, hint;
   final Color color;
   @override
   Widget build(BuildContext context) => Container(
@@ -448,23 +457,6 @@ class _Hook extends StatelessWidget {
                   height: 1.45,
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.movie_filter_rounded, color: color, size: 16),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      dsl,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -474,16 +466,36 @@ class _Hook extends StatelessWidget {
 }
 
 class _Title extends StatelessWidget {
-  const _Title(this.text);
+  const _Title(this.text, {this.actions = const []});
   final String text;
+  final List<String> actions;
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w800,
-      color: AppTheme.titleColor,
-    ),
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.titleColor,
+          ),
+        ),
+      ),
+      for (final action in actions) ...[
+        const SizedBox(width: 6),
+        OutlinedButton(
+          onPressed: () {},
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            minimumSize: const Size(0, 30),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(action, style: const TextStyle(fontSize: 12)),
+        ),
+      ],
+    ],
   );
 }
 
@@ -494,40 +506,5 @@ class _Tag extends StatelessWidget {
   Widget build(BuildContext context) => Chip(
     label: Text(text),
     avatar: const Icon(Icons.check_rounded, size: 16),
-  );
-}
-
-class _Tip extends StatelessWidget {
-  const _Tip(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: AppTheme.primary.withValues(alpha: .08),
-      borderRadius: BorderRadius.circular(AppTheme.radiusS),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(
-          Icons.lightbulb_outline_rounded,
-          color: AppTheme.primary,
-          size: 20,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppTheme.titleColor,
-              height: 1.55,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    ),
   );
 }

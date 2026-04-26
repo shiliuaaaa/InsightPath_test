@@ -783,6 +783,7 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
           pageContent: '知识点：${node.title}',
           courseId: widget.courseId,
           sectionId: _storageSectionId,
+          useNormalQuizFlow: widget.useNormalQuizFlow,
         ),
       ),
     );
