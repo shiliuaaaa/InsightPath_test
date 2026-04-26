@@ -194,7 +194,7 @@ start_python() {
             print_warning "检测到损坏的虚拟环境，正在重建..."
             rm -rf "venv"
         else
-            print_warning "虚拟环境不存在，正在创建..."
+        print_warning "虚拟环境不存在，正在创建..."
         fi
         python3 -m venv venv || {
             print_error "虚拟环境创建失败"
@@ -235,7 +235,7 @@ start_python() {
     eval "$VENV_PIP install -q --upgrade pip setuptools wheel" || {
         print_warning "基础打包工具升级失败，继续尝试安装业务依赖..."
     }
-
+    
     # 安装依赖
     if [ -f "requirements.txt" ]; then
         print_info "检查并安装依赖..."
@@ -243,7 +243,7 @@ start_python() {
             print_warning "src/requirements.txt 安装失败，继续尝试补充依赖..."
         }
     fi
-
+    
     print_info "启动 Python AI 服务 (端口: $PYTHON_PORT)..."
 
     LLM_API_KEY="${LLM_API_KEY:-${DASHSCOPE_API_KEY:-${DEEPSEEK_API_KEY:-}}}" \

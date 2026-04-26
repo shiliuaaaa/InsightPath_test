@@ -112,6 +112,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
           courseId: widget.course.id,
           courseTitle: widget.course.title,
           canEdit: _isOwner,
+          useNormalQuizFlow: false,
         ),
       ),
     );
@@ -148,7 +149,11 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                   centerTitle: false,
                   title: Text(
                     course.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -161,12 +166,18 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.16),
                           borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
                         ),
                         child: Center(
                           child: Text(
                             course.title.isNotEmpty ? course.title[0] : '?',
-                            style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -198,13 +209,23 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                           children: [
                             CircleAvatar(
                               radius: 18,
-                              backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                              child: const Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.primary),
+                              backgroundColor: AppTheme.primary.withValues(
+                                alpha: 0.12,
+                              ),
+                              child: const Icon(
+                                Icons.person_outline_rounded,
+                                size: 18,
+                                color: AppTheme.primary,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Text(
                               course.teacherName,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.titleColor),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.titleColor,
+                              ),
                             ),
                             const Spacer(),
                             _statusBadge(course.status),
@@ -215,7 +236,14 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                         const SizedBox(height: 18),
                         _buildActionButtons(canEnter, canJoinDirect),
                         const SizedBox(height: 24),
-                        const Text('课程简介', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.titleColor)),
+                        const Text(
+                          '课程简介',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.titleColor,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         Container(
                           width: double.infinity,
@@ -226,8 +254,14 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                             border: Border.all(color: const Color(0xFFEFF2F6)),
                           ),
                           child: Text(
-                            course.description.isNotEmpty ? course.description : '暂无简介',
-                            style: const TextStyle(fontSize: 14, color: AppTheme.bodyColor, height: 1.7),
+                            course.description.isNotEmpty
+                                ? course.description
+                                : '暂无简介',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.bodyColor,
+                              height: 1.7,
+                            ),
                           ),
                         ),
                       ],
@@ -253,9 +287,20 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 5),
-          Text(_statusText(status), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+          Text(
+            _statusText(status),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -281,7 +326,9 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     } else {
       hint = canJoinDirect ? '本课程可直接加入学习' : '本课程需申请加入，经教师审核后才能学习';
       color = canJoinDirect ? AppTheme.successColor : const Color(0xFFF59E0B);
-      icon = canJoinDirect ? Icons.lock_open_rounded : Icons.lock_outline_rounded;
+      icon = canJoinDirect
+          ? Icons.lock_open_rounded
+          : Icons.lock_outline_rounded;
     }
 
     return Container(
@@ -296,7 +343,14 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(hint, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500)),
+            child: Text(
+              hint,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -325,7 +379,9 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primary,
                 backgroundColor: Colors.white,
-                side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.22)),
+                side: BorderSide(
+                  color: AppTheme.primary.withValues(alpha: 0.22),
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusM),
                 ),
@@ -357,10 +413,19 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
       child: ElevatedButton(
         onPressed: _processing ? null : _handleJoinOrApply,
         style: ElevatedButton.styleFrom(
-          backgroundColor: canJoinDirect ? AppTheme.primary : AppTheme.secondary,
+          backgroundColor: canJoinDirect
+              ? AppTheme.primary
+              : AppTheme.secondary,
         ),
         child: _processing
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : Text(canJoinDirect ? '立即加入' : '申请加入'),
       ),
     );

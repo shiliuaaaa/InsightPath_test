@@ -15,6 +15,7 @@ import '../services/ai_service.dart';
 import '../services/auth_service.dart';
 import '../utils/app_theme.dart';
 import '../widgets/animation_canvas.dart';
+import 'demo/teacher_insight_mapper_demo.dart';
 import 'global_ai_tutor_page.dart';
 
 class CoursewareViewerPage extends StatefulWidget {
@@ -69,7 +70,9 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
   bool get _isTeacher => _role == 'TEACHER';
 
   SectionAiConfig? get _currentPagePreset {
-    final list = _presetConfigs.where((e) => e.pageNumber == _currentPageNumber).toList();
+    final list = _presetConfigs
+        .where((e) => e.pageNumber == _currentPageNumber)
+        .toList();
     if (list.isEmpty) return null;
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return list.first;
@@ -127,7 +130,8 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
     try {
       final dir = await getTemporaryDirectory();
       final savePath = '${dir.path}/${widget.fileName}';
-      final url = '$_baseUrl/api/v1/common/static/${widget.rawUrl}?usage=COURSE_MATERIAL';
+      final url =
+          '$_baseUrl/api/v1/common/static/${widget.rawUrl}?usage=COURSE_MATERIAL';
       final dio = Dio();
       await dio.download(
         url,
@@ -175,7 +179,12 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
       'step_index': 0,
       'narration': '初始化数组：$initialValues。',
       'actions': [
-        {'action': 'CREATE', 'entity_id': 'array_container', 'type': 'ArrayContainer', 'index': [0, 0]},
+        {
+          'action': 'CREATE',
+          'entity_id': 'array_container',
+          'type': 'ArrayContainer',
+          'index': [0, 0],
+        },
         for (var i = 0; i < initialValues.length; i++)
           {
             'action': 'CREATE',
@@ -206,7 +215,11 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
         ];
 
         if (shouldSwap) {
-          actions.add({'action': 'SWAP', 'entity_id_1': leftId, 'entity_id_2': rightId});
+          actions.add({
+            'action': 'SWAP',
+            'entity_id_1': leftId,
+            'entity_id_2': rightId,
+          });
 
           final tmpValue = values[j];
           values[j] = values[j + 1];
@@ -217,17 +230,32 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
           nodeOrder[j + 1] = tmpId;
         }
 
-        actions.add({'action': 'UPDATE', 'entity_id': leftId, 'theme': 'default'});
-        actions.add({'action': 'UPDATE', 'entity_id': rightId, 'theme': 'default'});
+        actions.add({
+          'action': 'UPDATE',
+          'entity_id': leftId,
+          'theme': 'default',
+        });
+        actions.add({
+          'action': 'UPDATE',
+          'entity_id': rightId,
+          'theme': 'default',
+        });
 
         if (j == rightBoundary - 1) {
-          actions.add({'action': 'UPDATE', 'entity_id': nodeOrder[rightBoundary], 'theme': 'locked'});
+          actions.add({
+            'action': 'UPDATE',
+            'entity_id': nodeOrder[rightBoundary],
+            'theme': 'locked',
+          });
         }
 
-        final suffix = j == rightBoundary - 1 ? '，${values[rightBoundary]} 到达末尾。' : '。';
+        final suffix = j == rightBoundary - 1
+            ? '，${values[rightBoundary]} 到达末尾。'
+            : '。';
         steps.add({
           'step_index': stepIndex++,
-          'narration': '第${pass + 1}轮：比较 $leftVal 和 $rightVal，${shouldSwap ? '交换' : '不交换'}$suffix',
+          'narration':
+              '第${pass + 1}轮：比较 $leftVal 和 $rightVal，${shouldSwap ? '交换' : '不交换'}$suffix',
           'actions': actions,
         });
       }
@@ -284,18 +312,28 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('第 $_currentPageNumber 页动画',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    Text(
+                      '第 $_currentPageNumber 页动画',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.play_circle_fill_rounded, color: AppTheme.primary),
+                      leading: const Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: AppTheme.primary,
+                      ),
                       title: const Text('播放动画'),
                       onTap: () {
                         Navigator.pop(ctx);
@@ -304,7 +342,10 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.auto_fix_high_rounded, color: AppTheme.secondary),
+                      leading: const Icon(
+                        Icons.auto_fix_high_rounded,
+                        color: AppTheme.secondary,
+                      ),
                       title: const Text('更换动画（重新生成）'),
                       onTap: () {
                         Navigator.pop(ctx);
@@ -313,8 +354,14 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.delete_outline_rounded, color: AppTheme.errorColor),
-                      title: const Text('删除动画', style: TextStyle(color: AppTheme.errorColor)),
+                      leading: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: AppTheme.errorColor,
+                      ),
+                      title: const Text(
+                        '删除动画',
+                        style: TextStyle(color: AppTheme.errorColor),
+                      ),
                       onTap: () async {
                         Navigator.pop(ctx);
                         final ok = await _aiService.deletePresetConfig(
@@ -324,11 +371,13 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                         if (!mounted) return;
                         if (ok) {
                           await _reloadPresets();
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(content: Text('动画已删除')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('动画已删除')),
+                          );
                         } else {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('删除失败，请稍后重试')),
+                          );
                         }
                       },
                     ),
@@ -369,7 +418,9 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.82),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
                       borderRadius: BorderRadius.circular(22),
                     ),
                     child: Column(
@@ -378,10 +429,18 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.auto_awesome_rounded, color: AppTheme.primary),
+                            const Icon(
+                              Icons.auto_awesome_rounded,
+                              color: AppTheme.primary,
+                            ),
                             const SizedBox(width: 8),
-                            Text('预设知径 · 第 $_currentPageNumber 页',
-                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                            Text(
+                              '预设知径 · 第 $_currentPageNumber 页',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
                             const Spacer(),
                             IconButton(
                               onPressed: () => Navigator.pop(ctx),
@@ -407,21 +466,30 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                                 onPressed: generating
                                     ? null
                                     : () async {
-                                        final prompt = promptController.text.trim();
+                                        final prompt = promptController.text
+                                            .trim();
                                         if (prompt.isEmpty) return;
                                         setSheetState(() => generating = true);
                                         try {
-                                          final script = _defaultBubbleSortScript();
-                                          setSheetState(() => previewScript = script);
+                                          final script =
+                                              _defaultBubbleSortScript();
+                                          setSheetState(
+                                            () => previewScript = script,
+                                          );
                                         } finally {
-                                          setSheetState(() => generating = false);
+                                          setSheetState(
+                                            () => generating = false,
+                                          );
                                         }
                                       },
                                 icon: generating
                                     ? const SizedBox(
                                         width: 16,
                                         height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
                                       )
                                     : const Icon(Icons.auto_fix_high_rounded),
                                 label: Text(generating ? '生成中...' : '生成预览'),
@@ -437,22 +505,38 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.85),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE7ECF3)),
+                              border: Border.all(
+                                color: const Color(0xFFE7ECF3),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(previewScript!.title,
-                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                                Text(
+                                  previewScript!.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
-                                Text('共 ${previewScript!.steps.length} 步 · ${previewScript!.steps.first.narration}',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 12, color: AppTheme.bodyColor)),
+                                Text(
+                                  '共 ${previewScript!.steps.length} 步 · ${previewScript!.steps.first.narration}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.bodyColor,
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
                                 OutlinedButton.icon(
-                                  onPressed: () => _openScriptPlayer(previewScript!),
-                                  icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+                                  onPressed: () =>
+                                      _openScriptPlayer(previewScript!),
+                                  icon: const Icon(
+                                    Icons.play_circle_outline_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text('打开预览播放器'),
                                 ),
                               ],
@@ -466,33 +550,50 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                                   ? null
                                   : () async {
                                       if (widget.sectionId == null) return;
-                                      final prompt = promptController.text.trim();
+                                      final prompt = promptController.text
+                                          .trim();
                                       if (prompt.isEmpty) return;
-                                      final dsl = jsonEncode(previewScript!.toJson());
-                                      setSheetState(() => saving = true);
-                                      final ok = await _aiService.savePresetConfig(
-                                        '${widget.sectionId}',
-                                        _currentPageNumber,
-                                        prompt,
-                                        dsl,
+                                      final dsl = jsonEncode(
+                                        previewScript!.toJson(),
                                       );
+                                      setSheetState(() => saving = true);
+                                      final ok = await _aiService
+                                          .savePresetConfig(
+                                            '${widget.sectionId}',
+                                            _currentPageNumber,
+                                            prompt,
+                                            dsl,
+                                          );
                                       setSheetState(() => saving = false);
                                       if (!mounted) return;
                                       if (ok) {
                                         Navigator.pop(ctx);
                                         await _reloadPresets();
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(const SnackBar(content: Text('预设已保存到当前页')));
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('预设已保存到当前页'),
+                                          ),
+                                        );
                                       } else {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(const SnackBar(content: Text('保存失败，请稍后重试')));
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('保存失败，请稍后重试'),
+                                          ),
+                                        );
                                       }
                                     },
                               icon: saving
                                   ? const SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     )
                                   : const Icon(Icons.save_rounded),
                               label: Text(saving ? '保存中...' : '保存预设到当前页'),
@@ -537,13 +638,21 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.82),
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('AI 助教', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        const Text(
+                          'AI 助教',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: promptController,
@@ -577,7 +686,10 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : const Icon(Icons.auto_awesome_rounded),
                             label: Text(generating ? '生成中...' : '生成动画讲解'),
@@ -625,6 +737,19 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          if (_isTeacher)
+            IconButton(
+              tooltip: '知径演示入口',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TeacherInsightMapperDemo(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.star_border_rounded, size: 19),
+            ),
           if (_isPdf)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -632,13 +757,19 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: const Color(0xFFE8ECF2)),
                     ),
-                    child: Text('第 $_currentPageNumber 页', style: const TextStyle(fontSize: 12)),
+                    child: Text(
+                      '第 $_currentPageNumber 页',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                   if (_currentPagePreset != null) ...[
                     const SizedBox(width: 6),
@@ -649,7 +780,9 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
-                          onTap: _isTeacher ? _showTeacherPresetActions : _playCurrentPreset,
+                          onTap: _isTeacher
+                              ? _showTeacherPresetActions
+                              : _playCurrentPreset,
                           child: Container(
                             width: 24,
                             height: 24,
@@ -702,7 +835,10 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primary,
+                      ),
                     )
                   : const Icon(Icons.open_in_new_rounded, size: 18),
             ),
@@ -727,9 +863,13 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
         future: _auth.getSavedToken(),
         builder: (context, snap) {
           if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            );
           }
-          final headers = snap.data != null ? {'Authorization': 'Bearer ${snap.data}'} : <String, String>{};
+          final headers = snap.data != null
+              ? {'Authorization': 'Bearer ${snap.data}'}
+              : <String, String>{};
           return SfPdfViewer.network(
             _buildUrl(widget.pdfUrl!),
             controller: _pdfController,
@@ -750,7 +890,8 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
 
     if (_isImage && widget.rawUrl != null) {
       return _ImageViewer(
-        url: '$_baseUrl/api/v1/common/static/${widget.rawUrl}?usage=COURSE_MATERIAL',
+        url:
+            '$_baseUrl/api/v1/common/static/${widget.rawUrl}?usage=COURSE_MATERIAL',
         auth: _auth,
       );
     }
@@ -773,12 +914,19 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.insert_drive_file_outlined,
-                      size: 72, color: AppTheme.primary.withValues(alpha: 0.7)),
+                  Icon(
+                    Icons.insert_drive_file_outlined,
+                    size: 72,
+                    color: AppTheme.primary.withValues(alpha: 0.7),
+                  ),
                   const SizedBox(height: 20),
                   Text(
                     widget.fileName,
-                    style: const TextStyle(color: AppTheme.titleColor, fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: AppTheme.titleColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
@@ -793,21 +941,35 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     icon: _loading
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.download_rounded),
                     label: Text(_loading ? '下载中...' : '下载并打开'),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
-                    Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                    Text(
+                      _error!,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -843,19 +1005,30 @@ class _ImageViewerState extends State<_ImageViewer> {
       future: _tokenFuture,
       builder: (context, snap) {
         if (!snap.hasData) {
-          return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+          return const Center(
+            child: CircularProgressIndicator(color: AppTheme.primary),
+          );
         }
         return InteractiveViewer(
           child: Center(
             child: Image.network(
               widget.url,
-              headers: snap.data != null ? {'Authorization': 'Bearer ${snap.data}'} : {},
+              headers: snap.data != null
+                  ? {'Authorization': 'Bearer ${snap.data}'}
+                  : {},
               loadingBuilder: (ctx, child, progress) {
                 if (progress == null) return child;
-                return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+                return const Center(
+                  child: CircularProgressIndicator(color: AppTheme.primary),
+                );
               },
-              errorBuilder: (ctx, err, _) =>
-                  const Center(child: Icon(Icons.broken_image, color: Colors.white54, size: 60)),
+              errorBuilder: (ctx, err, _) => const Center(
+                child: Icon(
+                  Icons.broken_image,
+                  color: Colors.white54,
+                  size: 60,
+                ),
+              ),
             ),
           ),
         );
@@ -896,16 +1069,18 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
       withData: false,
       type: FileType.any,
     );
-    if (picked == null || picked.files.isEmpty || picked.files.first.path == null) {
+    if (picked == null ||
+        picked.files.isEmpty ||
+        picked.files.first.path == null) {
       return;
     }
 
     final file = File(picked.files.first.path!);
     if (!await file.exists()) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('文件不存在，无法读取')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('文件不存在，无法读取')));
       return;
     }
 
@@ -918,9 +1093,9 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
         text = const Utf8Decoder(allowMalformed: true).convert(bytes);
       } catch (_) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂不支持解析该文件内容')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂不支持解析该文件内容')));
         return;
       }
     }
@@ -928,21 +1103,23 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
     final normalized = text.trim();
     if (normalized.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('文件内容为空')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('文件内容为空')));
       return;
     }
 
-    final clipped = normalized.length > 8000 ? normalized.substring(0, 8000) : normalized;
+    final clipped = normalized.length > 8000
+        ? normalized.substring(0, 8000)
+        : normalized;
     if (!mounted) return;
     setState(() {
       _attachedFileName = picked.files.first.name;
       _attachedFileContext = clipped;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已附加：${picked.files.first.name}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已附加：${picked.files.first.name}')));
   }
 
   void _clearAttachedFile() {
@@ -1025,7 +1202,10 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F0FE),
                   borderRadius: BorderRadius.circular(10),
@@ -1033,7 +1213,11 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.attach_file_rounded, size: 16, color: Color(0xFF1A73E8)),
+                    const Icon(
+                      Icons.attach_file_rounded,
+                      size: 16,
+                      color: Color(0xFF1A73E8),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -1049,7 +1233,11 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
                     ),
                     GestureDetector(
                       onTap: _clearAttachedFile,
-                      child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF6B7280)),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Color(0xFF6B7280),
+                      ),
                     ),
                   ],
                 ),
@@ -1063,18 +1251,27 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
                 final m = _messages[i];
                 final isUser = m.role == 'USER';
                 return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isUser
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.78,
+                    ),
                     decoration: BoxDecoration(
                       color: isUser ? const Color(0xFF1A73E8) : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       m.content,
-                      style: TextStyle(color: isUser ? Colors.white : const Color(0xFF1F2937)),
+                      style: TextStyle(
+                        color: isUser ? Colors.white : const Color(0xFF1F2937),
+                      ),
                     ),
                   ),
                 );
@@ -1087,7 +1284,10 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
               children: [
                 IconButton(
                   onPressed: _attachFile,
-                  icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.hintColor),
+                  icon: const Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: AppTheme.hintColor,
+                  ),
                 ),
                 Expanded(
                   child: TextField(

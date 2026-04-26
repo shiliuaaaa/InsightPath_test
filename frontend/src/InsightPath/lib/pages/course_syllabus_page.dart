@@ -8,6 +8,8 @@ import '../models/syllabus_node.dart';
 import '../services/section_service.dart';
 import '../utils/app_theme.dart';
 import 'courseware_viewer_page.dart';
+import 'demo/student_step_guide_demo.dart';
+import 'demo/teacher_insight_mapper_demo.dart';
 import 'global_ai_tutor_page.dart';
 
 class CourseSyllabusPage extends StatefulWidget {
@@ -18,6 +20,7 @@ class CourseSyllabusPage extends StatefulWidget {
     this.canEdit = false,
     this.embedded = false,
     this.storageSectionId,
+    this.useNormalQuizFlow = true,
   });
 
   final int courseId;
@@ -25,6 +28,7 @@ class CourseSyllabusPage extends StatefulWidget {
   final bool canEdit;
   final bool embedded;
   final int? storageSectionId;
+  final bool useNormalQuizFlow;
 
   @override
   State<CourseSyllabusPage> createState() => _CourseSyllabusPageState();
@@ -106,18 +110,29 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('创建')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('创建'),
+          ),
         ],
       ),
     );
 
     if (title == null || title.isEmpty) return;
-    final ok = await _sectionService.createSyllabusChapter(courseId: widget.courseId, title: title);
+    final ok = await _sectionService.createSyllabusChapter(
+      courseId: widget.courseId,
+      title: title,
+    );
     if (!mounted) return;
     if (ok != null) {
       await _loadAll();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('章节创建成功')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('章节创建成功')));
     }
   }
 
@@ -138,12 +153,20 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             return Padding(
-              padding: EdgeInsets.fromLTRB(14, 14, 14, MediaQuery.of(ctx).viewInsets.bottom + 14),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                14,
+                14,
+                MediaQuery.of(ctx).viewInsets.bottom + 14,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('创建知识点', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const Text(
+                    '创建知识点',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: titleCtrl,
@@ -170,8 +193,14 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                                   itemBuilder: (_, i) {
                                     final f = allFiles[i];
                                     return ListTile(
-                                      leading: const Icon(Icons.insert_drive_file_rounded),
-                                      title: Text(f.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      leading: const Icon(
+                                        Icons.insert_drive_file_rounded,
+                                      ),
+                                      title: Text(
+                                        f.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                       onTap: () => Navigator.pop(ctx2, f),
                                     );
                                   },
@@ -192,16 +221,22 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                       OutlinedButton.icon(
                         onPressed: () async {
                           if (_storageSectionId == null) return;
-                          final picked = await FilePicker.platform.pickFiles(type: FileType.any);
-                          if (picked == null || picked.files.isEmpty || picked.files.first.path == null) return;
-                          final file = File(picked.files.first.path!);
-                          final fileId = await _sectionService.uploadFileForSyllabus(
-                            courseId: widget.courseId,
-                            sectionId: _storageSectionId!,
-                            file: file,
-                            fileName: picked.files.first.name,
-                            parentId: 0,
+                          final picked = await FilePicker.platform.pickFiles(
+                            type: FileType.any,
                           );
+                          if (picked == null ||
+                              picked.files.isEmpty ||
+                              picked.files.first.path == null)
+                            return;
+                          final file = File(picked.files.first.path!);
+                          final fileId = await _sectionService
+                              .uploadFileForSyllabus(
+                                courseId: widget.courseId,
+                                sectionId: _storageSectionId!,
+                                file: file,
+                                fileName: picked.files.first.name,
+                                parentId: 0,
+                              );
                           if (fileId != null) {
                             setSheetState(() {
                               selectedFileId = fileId;
@@ -216,7 +251,13 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                   ),
                   if (selectedFileName != null) ...[
                     const SizedBox(height: 8),
-                    Text('已选择：$selectedFileName', style: const TextStyle(fontSize: 12, color: AppTheme.bodyColor)),
+                    Text(
+                      '已选择：$selectedFileName',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.bodyColor,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 10),
                   SizedBox(
@@ -225,17 +266,20 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                       onPressed: () async {
                         final title = titleCtrl.text.trim();
                         if (title.isEmpty || selectedFileId == null) return;
-                        final created = await _sectionService.createSyllabusKnowledge(
-                          courseId: widget.courseId,
-                          chapterId: chapter.id,
-                          title: title,
-                          resourceFileId: selectedFileId!,
-                        );
+                        final created = await _sectionService
+                            .createSyllabusKnowledge(
+                              courseId: widget.courseId,
+                              chapterId: chapter.id,
+                              title: title,
+                              resourceFileId: selectedFileId!,
+                            );
                         if (!mounted) return;
                         if (created != null) {
                           Navigator.pop(ctx);
                           await _loadAll();
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('知识点创建成功')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('知识点创建成功')),
+                          );
                         }
                       },
                       child: const Text('创建知识点'),
@@ -251,6 +295,14 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
   }
 
   Future<void> _createQuiz(SyllabusNode chapter) async {
+    if (!widget.useNormalQuizFlow) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherInsightMapperDemo()),
+      );
+      return;
+    }
+
     final questionCtrl = TextEditingController();
     final answerCtrl = TextEditingController();
     var quizType = 'CHOICE';
@@ -263,12 +315,20 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             return Padding(
-              padding: EdgeInsets.fromLTRB(14, 14, 14, MediaQuery.of(ctx).viewInsets.bottom + 14),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                14,
+                14,
+                MediaQuery.of(ctx).viewInsets.bottom + 14,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('创建习题', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const Text(
+                    '创建习题',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 10),
                   SegmentedButton<String>(
                     segments: const [
@@ -276,7 +336,8 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                       ButtonSegment(value: 'ESSAY', label: Text('大题')),
                     ],
                     selected: {quizType},
-                    onSelectionChanged: (s) => setSheetState(() => quizType = s.first),
+                    onSelectionChanged: (s) =>
+                        setSheetState(() => quizType = s.first),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -301,7 +362,10 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                             Expanded(
                               child: TextField(
                                 controller: ctrl,
-                                onChanged: (v) => options[i] = QuizOption(key: option.key, content: v),
+                                onChanged: (v) => options[i] = QuizOption(
+                                  key: option.key,
+                                  content: v,
+                                ),
                                 decoration: const InputDecoration(
                                   hintText: '选项内容',
                                   border: OutlineInputBorder(),
@@ -314,8 +378,12 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                     }),
                     TextButton.icon(
                       onPressed: () {
-                        final key = String.fromCharCode('A'.codeUnitAt(0) + options.length);
-                        setSheetState(() => options.add(QuizOption(key: key, content: '')));
+                        final key = String.fromCharCode(
+                          'A'.codeUnitAt(0) + options.length,
+                        );
+                        setSheetState(
+                          () => options.add(QuizOption(key: key, content: '')),
+                        );
                       },
                       icon: const Icon(Icons.add_rounded),
                       label: const Text('新建选项'),
@@ -326,7 +394,9 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                     controller: answerCtrl,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: quizType == 'CHOICE' ? '输入正确答案选项（如 A）' : '输入示例回答',
+                      hintText: quizType == 'CHOICE'
+                          ? '输入正确答案选项（如 A）'
+                          : '输入示例回答',
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -338,19 +408,24 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                         final q = questionCtrl.text.trim();
                         final a = answerCtrl.text.trim();
                         if (q.isEmpty || a.isEmpty) return;
-                        final created = await _sectionService.createSyllabusQuiz(
-                          courseId: widget.courseId,
-                          chapterId: chapter.id,
-                          quizType: quizType,
-                          question: q,
-                          answer: a,
-                          options: quizType == 'CHOICE' ? options : const [],
-                        );
+                        final created = await _sectionService
+                            .createSyllabusQuiz(
+                              courseId: widget.courseId,
+                              chapterId: chapter.id,
+                              quizType: quizType,
+                              question: q,
+                              answer: a,
+                              options: quizType == 'CHOICE'
+                                  ? options
+                                  : const [],
+                            );
                         if (!mounted) return;
                         if (created != null) {
                           Navigator.pop(ctx);
                           await _loadAll();
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('习题创建成功')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('习题创建成功')),
+                          );
                         }
                       },
                       child: const Text('创建习题'),
@@ -380,8 +455,14 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
             decoration: const InputDecoration(hintText: '章节名称'),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('保存')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('保存'),
+            ),
           ],
         ),
       );
@@ -394,7 +475,9 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
       if (!mounted) return;
       if (ok != null) {
         await _loadAll();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('章节已更新')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('章节已更新')));
       }
       return;
     }
@@ -414,16 +497,30 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
           return StatefulBuilder(
             builder: (ctx, setSheetState) {
               return Padding(
-                padding: EdgeInsets.fromLTRB(14, 14, 14, MediaQuery.of(ctx).viewInsets.bottom + 14),
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  14,
+                  14,
+                  MediaQuery.of(ctx).viewInsets.bottom + 14,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('修改知识点', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const Text(
+                      '修改知识点',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     TextField(
                       controller: titleCtrl,
-                      decoration: const InputDecoration(hintText: '知识点名称', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        hintText: '知识点名称',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     ElevatedButton.icon(
@@ -440,8 +537,14 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                                 itemBuilder: (_, i) {
                                   final f = allFiles[i];
                                   return ListTile(
-                                    leading: const Icon(Icons.insert_drive_file_rounded),
-                                    title: Text(f.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    leading: const Icon(
+                                      Icons.insert_drive_file_rounded,
+                                    ),
+                                    title: Text(
+                                      f.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                     onTap: () => Navigator.pop(ctx2, f),
                                   );
                                 },
@@ -461,7 +564,13 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                     ),
                     if (selectedFileName != null) ...[
                       const SizedBox(height: 8),
-                      Text('已选择：$selectedFileName', style: const TextStyle(fontSize: 12, color: AppTheme.bodyColor)),
+                      Text(
+                        '已选择：$selectedFileName',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.bodyColor,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 10),
                     SizedBox(
@@ -470,17 +579,20 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                         onPressed: () async {
                           final title = titleCtrl.text.trim();
                           if (title.isEmpty || selectedFileId == null) return;
-                          final updated = await _sectionService.updateSyllabusNode(
-                            courseId: widget.courseId,
-                            nodeId: node.id,
-                            title: title,
-                            resourceFileId: selectedFileId,
-                          );
+                          final updated = await _sectionService
+                              .updateSyllabusNode(
+                                courseId: widget.courseId,
+                                nodeId: node.id,
+                                title: title,
+                                resourceFileId: selectedFileId,
+                              );
                           if (!mounted) return;
                           if (updated != null) {
                             Navigator.pop(ctx);
                             await _loadAll();
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('知识点已更新')));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('知识点已更新')),
+                            );
                           }
                         },
                         child: const Text('保存修改'),
@@ -509,17 +621,31 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             return Padding(
-              padding: EdgeInsets.fromLTRB(14, 14, 14, MediaQuery.of(ctx).viewInsets.bottom + 14),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                14,
+                14,
+                MediaQuery.of(ctx).viewInsets.bottom + 14,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(node.isQuizChoice ? '修改选择题' : '修改大题', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(
+                    node.isQuizChoice ? '修改选择题' : '修改大题',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: questionCtrl,
                     maxLines: 3,
-                    decoration: const InputDecoration(hintText: '输入题目', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      hintText: '输入题目',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   if (node.isQuizChoice) ...[
                     const SizedBox(height: 10),
@@ -535,8 +661,14 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                             Expanded(
                               child: TextField(
                                 controller: ctrl,
-                                onChanged: (v) => options[i] = QuizOption(key: option.key, content: v),
-                                decoration: const InputDecoration(hintText: '选项内容', border: OutlineInputBorder()),
+                                onChanged: (v) => options[i] = QuizOption(
+                                  key: option.key,
+                                  content: v,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: '选项内容',
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
                             ),
                           ],
@@ -561,18 +693,21 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                         final q = questionCtrl.text.trim();
                         final a = answerCtrl.text.trim();
                         if (q.isEmpty || a.isEmpty) return;
-                        final updated = await _sectionService.updateSyllabusNode(
-                          courseId: widget.courseId,
-                          nodeId: node.id,
-                          question: q,
-                          answer: a,
-                          options: node.isQuizChoice ? options : null,
-                        );
+                        final updated = await _sectionService
+                            .updateSyllabusNode(
+                              courseId: widget.courseId,
+                              nodeId: node.id,
+                              question: q,
+                              answer: a,
+                              options: node.isQuizChoice ? options : null,
+                            );
                         if (!mounted) return;
                         if (updated != null) {
                           Navigator.pop(ctx);
                           await _loadAll();
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('习题已更新')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('习题已更新')),
+                          );
                         }
                       },
                       child: const Text('保存修改'),
@@ -593,10 +728,18 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
-        content: Text('确定删除「${node.title}」吗？${node.isChapter ? '\n章节下所有知识点和习题会被一起删除。' : ''}'),
+        content: Text(
+          '确定删除「${node.title}」吗？${node.isChapter ? '\n章节下所有知识点和习题会被一起删除。' : ''}',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('删除', style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -609,15 +752,20 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
     if (!mounted) return;
     if (ok) {
       await _loadAll();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('删除成功')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('删除成功')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('删除失败，请稍后重试')));
     }
   }
 
   void _openKnowledge(SyllabusNode node) {
     final ext = (node.resourceExtension ?? '').toLowerCase();
-    final hasPdf = node.resourcePdfUrl != null && node.resourcePdfUrl!.isNotEmpty;
+    final hasPdf =
+        node.resourcePdfUrl != null && node.resourcePdfUrl!.isNotEmpty;
     final url = node.resourceUrl;
 
     Navigator.push(
@@ -625,7 +773,11 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
       MaterialPageRoute(
         builder: (_) => CoursewareViewerPage(
           fileName: node.resourceName ?? node.title,
-          pdfUrl: hasPdf ? node.resourcePdfUrl : (ext == 'pdf' && url != null ? _sectionService.getFileAccessUrl(url) : null),
+          pdfUrl: hasPdf
+              ? node.resourcePdfUrl
+              : (ext == 'pdf' && url != null
+                    ? _sectionService.getFileAccessUrl(url)
+                    : null),
           rawUrl: url,
           extension: node.resourceExtension,
           pageContent: '知识点：${node.title}',
@@ -637,10 +789,19 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
   }
 
   void _openQuiz(SyllabusNode node) {
+    if (!widget.useNormalQuizFlow) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const StudentStepGuideDemo()),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => _QuizPreviewPage(node: node, canRevealImmediately: widget.canEdit),
+        builder: (_) =>
+            _QuizPreviewPage(node: node, canRevealImmediately: widget.canEdit),
       ),
     );
   }
@@ -668,7 +829,10 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              tilePadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 2,
+              ),
               leading: Container(
                 width: 30,
                 height: 30,
@@ -676,13 +840,24 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                   color: AppTheme.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.auto_stories_rounded, size: 16, color: AppTheme.primary),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  size: 16,
+                  color: AppTheme.primary,
+                ),
               ),
               title: Text(
                 chapter.title,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.titleColor),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.titleColor,
+                ),
               ),
-              subtitle: Text('${chapter.children.length} 项', style: const TextStyle(fontSize: 12, color: AppTheme.hintColor)),
+              subtitle: Text(
+                '${chapter.children.length} 项',
+                style: const TextStyle(fontSize: 12, color: AppTheme.hintColor),
+              ),
               children: [
                 if (widget.canEdit)
                   Padding(
@@ -691,7 +866,10 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                       children: [
                         TextButton.icon(
                           onPressed: () => _createKnowledge(chapter),
-                          icon: const Icon(Icons.lightbulb_outline_rounded, size: 18),
+                          icon: const Icon(
+                            Icons.lightbulb_outline_rounded,
+                            size: 18,
+                          ),
                           label: const Text('加知识点'),
                         ),
                         TextButton.icon(
@@ -708,7 +886,11 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                         IconButton(
                           tooltip: '删除章节',
                           onPressed: () => _deleteNode(chapter),
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                            color: Colors.red,
+                          ),
                         ),
                       ],
                     ),
@@ -734,11 +916,30 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                       ),
                       child: Icon(icon, color: AppTheme.secondary, size: 18),
                     ),
-                    title: Text(node.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    title: Text(
+                      node.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     subtitle: node.isKnowledge
-                        ? Text(node.resourceName ?? '未关联文件', style: const TextStyle(fontSize: 12, color: AppTheme.hintColor))
-                        : Text(node.question ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: AppTheme.hintColor)),
+                        ? Text(
+                            node.resourceName ?? '未关联文件',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.hintColor,
+                            ),
+                          )
+                        : Text(
+                            node.question ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.hintColor,
+                            ),
+                          ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -751,13 +952,22 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
                           IconButton(
                             tooltip: '删除',
                             onPressed: () => _deleteNode(node),
-                            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                              color: Colors.red,
+                            ),
                           ),
                         ],
-                        const Icon(Icons.chevron_right_rounded, color: AppTheme.hintColor),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppTheme.hintColor,
+                        ),
                       ],
                     ),
-                    onTap: () => node.isKnowledge ? _openKnowledge(node) : _openQuiz(node),
+                    onTap: () => node.isKnowledge
+                        ? _openKnowledge(node)
+                        : _openQuiz(node),
                   );
                 }),
               ],
@@ -804,9 +1014,17 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: Text('课程大纲 · ${widget.courseTitle}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        title: Text(
+          '课程大纲 · ${widget.courseTitle}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
-        flexibleSpace: Container(decoration: const BoxDecoration(gradient: AppTheme.heroGradient)),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(gradient: AppTheme.heroGradient),
+        ),
         actions: [
           if (widget.canEdit)
             IconButton(
@@ -822,7 +1040,10 @@ class _CourseSyllabusPageState extends State<CourseSyllabusPage> {
 }
 
 class _QuizPreviewPage extends StatefulWidget {
-  const _QuizPreviewPage({required this.node, required this.canRevealImmediately});
+  const _QuizPreviewPage({
+    required this.node,
+    required this.canRevealImmediately,
+  });
 
   final SyllabusNode node;
   final bool canRevealImmediately;
@@ -858,7 +1079,9 @@ class _QuizPreviewPageState extends State<_QuizPreviewPage> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const GlobalAiTutorPage(username: '同学')),
+            MaterialPageRoute(
+              builder: (_) => const GlobalAiTutorPage(username: '同学'),
+            ),
           );
         },
         icon: const Icon(Icons.smart_toy_outlined),
@@ -876,9 +1099,21 @@ class _QuizPreviewPageState extends State<_QuizPreviewPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(node.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(
+                node.title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 10),
-              Text(node.question ?? '', style: const TextStyle(fontSize: 14, color: AppTheme.titleColor)),
+              Text(
+                node.question ?? '',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.titleColor,
+                ),
+              ),
               const SizedBox(height: 12),
               if (node.isQuizChoice)
                 ...node.options.map((opt) {
@@ -920,7 +1155,9 @@ class _QuizPreviewPageState extends State<_QuizPreviewPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    node.isQuizChoice ? '正确答案：${node.answer ?? ''}' : '参考答案：${node.answer ?? ''}',
+                    node.isQuizChoice
+                        ? '正确答案：${node.answer ?? ''}'
+                        : '参考答案：${node.answer ?? ''}',
                     style: const TextStyle(color: AppTheme.titleColor),
                   ),
                 ),

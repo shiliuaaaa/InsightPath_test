@@ -3,12 +3,12 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/ai_service.dart';
 import '../utils/app_theme.dart';
 import 'animation_player_page.dart';
+import 'demo/student_step_guide_demo.dart';
 import 'global_ai_tutor_page.dart';
 
 class LessonQuizPage extends StatefulWidget {
@@ -33,12 +33,29 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: const Text('课后练习', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        title: const Text(
+          '课后练习',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: Container(
           decoration: const BoxDecoration(gradient: AppTheme.heroGradient),
         ),
         actions: [
+          IconButton(
+            tooltip: '步进演示入口',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StudentStepGuideDemo()),
+              );
+            },
+            icon: const Icon(
+              Icons.star_border_rounded,
+              color: Colors.white,
+              size: 19,
+            ),
+          ),
           TextButton.icon(
             onPressed: () {
               Navigator.push(
@@ -46,15 +63,24 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
                 MaterialPageRoute(
                   builder: (_) => AnimationPlayerPage(
                     sourceTitle: widget.lessonTitle,
-                    sourceContent: '题目：在最坏情况下，冒泡排序的时间复杂度是多少？\n选项：A.O(n) B.O(n log n) C.O(n^2) D.O(1)',
+                    sourceContent:
+                        '题目：在最坏情况下，冒泡排序的时间复杂度是多少？\n选项：A.O(n) B.O(n log n) C.O(n^2) D.O(1)',
                   ),
                 ),
               );
             },
-            icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+            icon: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
             label: const Text(
               '动画讲解',
-              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           IconButton(
@@ -70,7 +96,8 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
             icon: const Icon(Icons.smart_toy_outlined, color: Colors.white),
           ),
         ],
-      ),      body: Container(
+      ),
+      body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -162,14 +189,19 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
                 _selectedOption == value
                     ? Icons.radio_button_checked_rounded
                     : Icons.radio_button_off_rounded,
-                color: _selectedOption == value ? AppTheme.primary : AppTheme.hintColor,
+                color: _selectedOption == value
+                    ? AppTheme.primary
+                    : AppTheme.hintColor,
                 size: 20,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   value,
-                  style: const TextStyle(fontSize: 14, color: AppTheme.titleColor),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.titleColor,
+                  ),
                 ),
               ),
             ],
@@ -184,9 +216,7 @@ class _LessonQuizPageState extends State<LessonQuizPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SocraticTutorSheet(
-        title: widget.lessonTitle,
-      ),
+      builder: (_) => _SocraticTutorSheet(title: widget.lessonTitle),
     );
   }
 }
@@ -204,10 +234,7 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
   final AiService _aiService = AiService();
   final TextEditingController _inputController = TextEditingController();
   final List<Map<String, String>> _messages = [
-    {
-      'role': 'AI',
-      'content': '我是你的启发式助教。别急着看答案，先说说你对这道题的第一直觉。',
-    }
+    {'role': 'AI', 'content': '我是你的启发式助教。别急着看答案，先说说你对这道题的第一直觉。'},
   ];
   bool _sending = false;
   int? _sessionId;
@@ -235,7 +262,9 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.9),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(26),
+                ),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.75)),
               ),
               child: Column(
@@ -253,14 +282,27 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.school_rounded, color: AppTheme.primary, size: 20),
+                        const Icon(
+                          Icons.school_rounded,
+                          color: AppTheme.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         const Text(
                           'AI 助教（启发式）',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         const Spacer(),
-                        Text(widget.title, style: const TextStyle(fontSize: 12, color: AppTheme.hintColor)),
+                        Text(
+                          widget.title,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.hintColor,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -274,23 +316,35 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                         final m = _messages[index];
                         final isUser = m['role'] == 'USER';
                         return Align(
-                          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                          alignment: isUser
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.78,
+                              maxWidth:
+                                  MediaQuery.of(context).size.width * 0.78,
                             ),
                             decoration: BoxDecoration(
                               color: isUser
                                   ? AppTheme.primary.withValues(alpha: 0.14)
                                   : Colors.white,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE8EAED)),
+                              border: Border.all(
+                                color: const Color(0xFFE8EAED),
+                              ),
                             ),
                             child: Text(
                               m['content'] ?? '',
-                              style: const TextStyle(fontSize: 13, color: AppTheme.titleColor, height: 1.5),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.titleColor,
+                                height: 1.5,
+                              ),
                             ),
                           ),
                         );
@@ -302,7 +356,10 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE8F0FE),
                           borderRadius: BorderRadius.circular(10),
@@ -310,7 +367,11 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.attach_file_rounded, size: 16, color: Color(0xFF1A73E8)),
+                            const Icon(
+                              Icons.attach_file_rounded,
+                              size: 16,
+                              color: Color(0xFF1A73E8),
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
@@ -326,7 +387,11 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                             ),
                             GestureDetector(
                               onTap: _clearAttachedFile,
-                              child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF6B7280)),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: Color(0xFF6B7280),
+                              ),
                             ),
                           ],
                         ),
@@ -334,12 +399,20 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                     ),
                   const Divider(height: 1),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(12, 10, 12, MediaQuery.of(context).padding.bottom + 10),
+                    padding: EdgeInsets.fromLTRB(
+                      12,
+                      10,
+                      12,
+                      MediaQuery.of(context).padding.bottom + 10,
+                    ),
                     child: Row(
                       children: [
                         IconButton(
                           onPressed: _attachFile,
-                          icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.hintColor),
+                          icon: const Icon(
+                            Icons.add_circle_outline_rounded,
+                            color: AppTheme.hintColor,
+                          ),
                         ),
                         Expanded(
                           child: TextField(
@@ -358,7 +431,9 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.send_rounded),
                         ),
@@ -381,16 +456,18 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
       withData: false,
       type: FileType.any,
     );
-    if (picked == null || picked.files.isEmpty || picked.files.first.path == null) {
+    if (picked == null ||
+        picked.files.isEmpty ||
+        picked.files.first.path == null) {
       return;
     }
 
     final file = File(picked.files.first.path!);
     if (!await file.exists()) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('文件不存在，无法读取')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('文件不存在，无法读取')));
       return;
     }
 
@@ -403,9 +480,9 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
         text = const Utf8Decoder(allowMalformed: true).convert(bytes);
       } catch (_) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂不支持解析该文件内容')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂不支持解析该文件内容')));
         return;
       }
     }
@@ -413,21 +490,23 @@ class _SocraticTutorSheetState extends State<_SocraticTutorSheet> {
     final normalized = text.trim();
     if (normalized.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('文件内容为空')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('文件内容为空')));
       return;
     }
 
-    final clipped = normalized.length > 8000 ? normalized.substring(0, 8000) : normalized;
+    final clipped = normalized.length > 8000
+        ? normalized.substring(0, 8000)
+        : normalized;
     if (!mounted) return;
     setState(() {
       _attachedFileName = picked.files.first.name;
       _attachedFileContext = clipped;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已附加：${picked.files.first.name}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已附加：${picked.files.first.name}')));
   }
 
   void _clearAttachedFile() {
