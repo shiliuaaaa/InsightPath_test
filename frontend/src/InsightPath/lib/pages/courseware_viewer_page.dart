@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../models/ai_message.dart';
@@ -460,7 +461,7 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
                           minLines: 2,
                           maxLines: 4,
                           decoration: const InputDecoration(
-                            hintText: '例如：演示冒泡排序的交换过程',
+                            hintText: '',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -720,7 +721,7 @@ class _CoursewareViewerPageState extends State<CoursewareViewerPage> {
       return FloatingActionButton.extended(
         onPressed: _showTeacherPresetSheet,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('预设知径'),
+        label: const Text('生成动画'),
       );
     }
 
@@ -1090,8 +1091,9 @@ class _CourseAiQuickPage extends StatefulWidget {
 }
 
 class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
-  static const String _ragQuestion = '线性表插入元素的时间复杂度是多少？怎么理解？';
   static const int _ragTargetPage = 22;
+  static const String _ragRectsStorageKey =
+      'rag_demo_linear_list_insert_rects_v1';
   static List<Rect> _demoRects = [];
 
   final AiService _aiService = AiService();
@@ -1206,7 +1208,7 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
       await Future<void>.delayed(const Duration(milliseconds: 450));
       if (!mounted) return;
       const demoReply =
-          '顺序表在指定位置插入元素的时间复杂度通常是 O(n)。因为若插入位置不在表尾，就需要把插入位置及其后的元素整体顺序后移，最坏情况下需要移动接近 n 个元素。';
+          '顺序表（基于数组的线性表）在任意位置插入一个元素的时间复杂度是 O(n)。要直观地理解这个时间复杂度，我们需要从顺序表的底层存储结构说起，并分情况来讨论。\n\n核心原因：物理内存连续\n顺序表的特点是数据在物理内存中是挨在一起连续存放的。就像一群人排成紧密的一队，中间没有任何空隙。如果你想在队伍的某个特定位置插入一个新的人，为了给他腾出空间，他位置后面的所有人都必须依次向后退一步。\n\n根据插入位置的不同，时间复杂度分为以下三种情况：\n\n场景：在顺序表的表尾（队伍的最后）插入元素。\n理解：因为插入在末尾，后面没有任何人，所以不需要移动任何已有元素，直接放进去即可。时间开销是一个常数级操作，即 O(1)。\n\n场景：在顺序表的表头（队伍的最前面）插入元素。\n理解：为了给第一个位置腾出空间，原队伍里的所有 n 个人都必须全部向后移动一位。数据量越大，移动的次数就越多，时间开销与当前元素个数 n 成正比，即 O(n)。\n\n场景：在顺序表的任意位置（从表头到表尾共 n+1 个可用位置）随机插入一个元素。\n理解：假设在每个位置插入的概率是相等的。如果插在中间，大概需要移动一半的元素（即 n/2 个）。在计算时间复杂度时，我们忽略常数系数 1/2。\n\n总而言之，正是因为顺序表需要保持“元素相邻”的连续性约束，导致了在非尾部位置插入时必须进行大量的数据搬移工作。';
       setState(() {
         _sending = false;
         _messages.add(
@@ -1247,9 +1249,34 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
     });
   }
 
+  Future<List<Rect>> _loadStoredRagRects() async {
+    if (_demoRects.isNotEmpty) return _demoRects;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_ragRectsStorageKey) ?? const [];
+    final rects = <Rect>[];
+    for (final item in raw) {
+      final parts = item.split(',').map(double.tryParse).toList();
+      if (parts.length != 4 || parts.any((e) => e == null)) continue;
+      rects.add(Rect.fromLTRB(parts[0]!, parts[1]!, parts[2]!, parts[3]!));
+    }
+    _demoRects = rects;
+    return rects;
+  }
+
+  Future<void> _saveStoredRagRects(List<Rect> rects) async {
+    _demoRects = rects;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _ragRectsStorageKey,
+      rects.map((e) => '${e.left},${e.top},${e.right},${e.bottom}').toList(),
+    );
+  }
+
   Future<void> _openRagCitation() async {
     final pdfUrl = widget.pdfUrl;
     if (pdfUrl == null) return;
+    final rects = await _loadStoredRagRects();
+    if (!mounted) return;
     final result = await Navigator.push<List<Rect>>(
       context,
       MaterialPageRoute(
@@ -1257,13 +1284,30 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
           pdfUrl: pdfUrl,
           targetPage: _ragTargetPage,
           sourceTitle: widget.sourceTitle,
-          initialRects: _demoRects,
+          initialRects: rects,
         ),
       ),
     );
     if (result != null) {
-      setState(() => _demoRects = result);
+      await _saveStoredRagRects(result);
+      if (!mounted) return;
+      setState(() {});
     }
+  }
+
+  Widget _citationLine(String text) {
+    return GestureDetector(
+      onTap: _openRagCitation,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppTheme.primary,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          decoration: TextDecoration.underline,
+        ),
+      ),
+    );
   }
 
   @override
@@ -1276,27 +1320,9 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '当前资料：${widget.sourceTitle}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.hintColor,
-                  ),
-                ),
-                if (!widget.useRealAiForRagDemo) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '演示问题：$_ragQuestion',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.bodyColor,
-                    ),
-                  ),
-                ],
-              ],
+            child: Text(
+              '当前资料：${widget.sourceTitle}',
+              style: const TextStyle(fontSize: 13, color: AppTheme.hintColor),
             ),
           ),
           if (_attachedFileName != null)
@@ -1382,18 +1408,13 @@ class _CourseAiQuickPageState extends State<_CourseAiQuickPage> {
                         ),
                         if (!isUser && !widget.useRealAiForRagDemo) ...[
                           const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: _openRagCitation,
-                            child: const Text(
-                              '──────── 相关内容：第二章 线性表 / 第22页',
-                              style: TextStyle(
-                                color: AppTheme.primary,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
+                          _citationLine('最好情况：O(1)。'),
+                          const SizedBox(height: 6),
+                          _citationLine('最坏情况：O(n)。'),
+                          const SizedBox(height: 6),
+                          _citationLine('平均情况：O(n)。'),
+                          const SizedBox(height: 6),
+                          _citationLine('因此平均时间复杂度依然是线性级别的 O(n)。'),
                         ],
                       ],
                     ),

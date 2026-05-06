@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
+import '../../services/auth_service.dart';
+
 class PdfRagHighlightDemoPage extends StatefulWidget {
   const PdfRagHighlightDemoPage({
     super.key,
@@ -21,22 +23,23 @@ class PdfRagHighlightDemoPage extends StatefulWidget {
 }
 
 class _PdfRagHighlightDemoPageState extends State<PdfRagHighlightDemoPage> {
+  final AuthService _auth = AuthService();
   final PdfViewerController _controller = PdfViewerController();
   final GlobalKey _overlayKey = GlobalKey();
 
   late List<Rect> _rects;
+  late bool _isMarking;
   Offset? _firstPoint;
 
   @override
   void initState() {
     super.initState();
     _rects = List<Rect>.from(widget.initialRects);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.jumpToPage(widget.targetPage);
-    });
+    _isMarking = widget.initialRects.isEmpty;
   }
 
   void _handleTapDown(TapDownDetails details) {
+    if (!_isMarking) return;
     final box = _overlayKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
     final local = box.globalToLocal(details.globalPosition);
@@ -90,59 +93,88 @@ class _PdfRagHighlightDemoPageState extends State<PdfRagHighlightDemoPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text('第 ${widget.targetPage} 页知识点定位'),
+        title: Text(
+          _isMarking ? '第 ${widget.targetPage} 页知识点定位' : widget.sourceTitle,
+        ),
         actions: [
-          TextButton(onPressed: _undo, child: const Text('撤销')),
-          TextButton(onPressed: _clear, child: const Text('清空')),
-          TextButton(onPressed: _save, child: const Text('保存')),
+          if (_isMarking) ...[
+            TextButton(onPressed: _undo, child: const Text('撤销')),
+            TextButton(onPressed: _clear, child: const Text('清空')),
+            TextButton(onPressed: _save, child: const Text('保存')),
+          ],
         ],
       ),
       body: Stack(
         children: [
           Positioned.fill(
-            child: SfPdfViewer.network(
-              widget.pdfUrl,
-              controller: _controller,
-              pageLayoutMode: PdfPageLayoutMode.single,
+            child: FutureBuilder<String?>(
+              future: _auth.getSavedToken(),
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final headers = snap.data != null
+                    ? {'Authorization': 'Bearer ${snap.data}'}
+                    : <String, String>{};
+                return SfPdfViewer.network(
+                  widget.pdfUrl,
+                  controller: _controller,
+                  headers: headers,
+                  pageLayoutMode: PdfPageLayoutMode.continuous,
+                  onDocumentLoaded: (_) =>
+                      _controller.jumpToPage(widget.targetPage),
+                );
+              },
             ),
           ),
           Positioned.fill(
-            child: GestureDetector(
-              onTapDown: _handleTapDown,
-              child: Container(
-                key: _overlayKey,
-                color: Colors.transparent,
-                child: CustomPaint(
-                  painter: _RagRectPainter(
-                    rects: _rects,
-                    firstPoint: _firstPoint,
+            child: IgnorePointer(
+              ignoring: !_isMarking,
+              child: GestureDetector(
+                onTapDown: _handleTapDown,
+                child: Container(
+                  key: _overlayKey,
+                  color: Colors.transparent,
+                  child: CustomPaint(
+                    painter: _RagRectPainter(
+                      rects: _rects,
+                      firstPoint: _firstPoint,
+                    ),
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
             ),
           ),
-          Positioned(
-            left: 12,
-            right: 12,
-            bottom: 12,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _firstPoint == null
-                    ? '已自动跳到第 ${widget.targetPage} 页。请点击矩形的第一个角点，再点击对角点完成一个高亮框。'
-                    : '请点击第二个对角点完成当前高亮框。',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  height: 1.4,
+          if (_isMarking)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.34),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _firstPoint == null
+                        ? '已框选 ${_rects.length} 个区域。继续点击两次可新增高亮框，完成后点保存。'
+                        : '再点击一次完成当前高亮框。',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      height: 1.3,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
